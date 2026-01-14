@@ -66,7 +66,7 @@ def merge_configs(configs: T.Sequence[Config]) -> Config:
 # %% CONVERTERS
 
 
-def to_object(config: Config, resolve: bool = True) -> object:
+def to_object(config: Config, resolve: bool = True) -> T.Any:
     """Convert a config object to a native Python object (dict or list).
 
     Args:

@@ -39,6 +39,7 @@ class Reader(abc.ABC, pdt.BaseModel, strict=True, frozen=True, extra="forbid"):
             pd.DataFrame: dataframe representation.
         """
 
+    @abc.abstractmethod
     def lineage(
         self,
         name: str,
@@ -77,7 +78,7 @@ class CSVReader(Reader):
     @override
     def read(self) -> pd.DataFrame:
         # Standard pandas CSV read
-        data = pd.read_csv(self.path, sep=self.sep, header=self.header)
+        data = pd.read_csv(self.path, sep=self.sep, header=T.cast(T.Any, self.header))
         if self.limit is not None:
             data = data.head(self.limit)
         return data

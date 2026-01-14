@@ -15,10 +15,13 @@ import argparse
 import json
 import sys
 import typing as T
+import pydantic as pdt
+
 import yaml  # Assuming you use PyYAML
 
 # Internal Imports
-from fatigue import settings
+from fatigue import jobs
+from fatigue.settings import Settings
 
 # %% PARSERS
 
@@ -32,6 +35,18 @@ parser.add_argument("-s", "--schema", action="store_true", help="Print settings 
 # %% SCRIPTS
 
 
+class MainSettings(Settings):
+    """Main settings of the application.
+
+    This class corresponds to the structure of your YAML file.
+
+    Parameters:
+        job (jobs.JobKind): The specific job configuration to run.
+    """
+
+    job: jobs.JobKind = pdt.Field(..., discriminator="KIND")
+
+
 def main(argv: T.Optional[T.List[str]] = None) -> int:
     """Main script for the application."""
 
@@ -39,7 +54,7 @@ def main(argv: T.Optional[T.List[str]] = None) -> int:
 
     # 1. Print Schema (Helper for debugging)
     if args.schema:
-        schema = settings.MainSettings.model_json_schema()
+        schema = MainSettings.model_json_schema()
         json.dump(schema, sys.stdout, indent=4)
         return 0
 
@@ -67,7 +82,7 @@ def main(argv: T.Optional[T.List[str]] = None) -> int:
 
     # 5. Validate & Run
     # Validate the dictionary against your Pydantic Schema
-    setting = settings.MainSettings.model_validate(final_config)
+    setting = MainSettings.model_validate(final_config)
 
     print(f"Starting Job: {setting.job.KIND}...")
 

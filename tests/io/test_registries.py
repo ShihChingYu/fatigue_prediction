@@ -20,7 +20,7 @@ def test_uri_for_model_alias() -> None:
 def test_uri_for_model_version() -> None:
     name = "testing"
     version = 1
-    uri = registries.uri_for_model_version(name=name, version=version)
+    uri = registries.uri_for_model_version(name=name, version=int(version))
     assert uri == f"models:/{name}/{version}", "The model URI should be valid!"
 
 
@@ -33,7 +33,7 @@ def test_uri_for_model_alias_or_version() -> None:
     assert alias_uri == registries.uri_for_model_alias(name=name, alias=alias), (
         "The alias URI should be valid!"
     )
-    assert version_uri == registries.uri_for_model_version(name=name, version=version), (
+    assert version_uri == registries.uri_for_model_version(name=name, version=int(version)), (
         "The version URI should be valid!"
     )
 
@@ -61,7 +61,7 @@ def test_custom_pipeline(
         info = saver.save(model=model, signature=signature, input_example=inputs)
         version = register.register(name=name, model_uri=info.model_uri)
 
-    model_uri = registries.uri_for_model_version(name=name, version=version.version)
+    model_uri = registries.uri_for_model_version(name=name, version=int(version.version))
     adapter = loader.load(uri=model_uri)
     _ = adapter.predict(inputs=inputs)
 
@@ -107,7 +107,7 @@ def test_builtin_pipeline(
         info = saver.save(model=model, signature=signature, input_example=inputs)
         version = register.register(name=name, model_uri=info.model_uri)
 
-    model_uri = registries.uri_for_model_version(name=name, version=version.version)
+    model_uri = registries.uri_for_model_version(name=name, version=int(version.version))
     adapter = loader.load(uri=model_uri)
     _ = adapter.predict(inputs=inputs)
 

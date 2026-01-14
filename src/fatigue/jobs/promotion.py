@@ -42,7 +42,7 @@ class PromotionJob(base.Job):
                 f"name='{name}'", max_results=1, order_by=["version_number DESC"]
             )[0].version
         else:
-            version = self.version
+            version = str(self.version)
 
         logger.info("From version: {}", version)
 

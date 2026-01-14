@@ -3,6 +3,7 @@
 # %% IMPORTS
 
 import typing as T
+from typing import cast
 
 import pandas as pd
 
@@ -28,6 +29,15 @@ class MockReader(datasets.Reader):
     def read(self) -> pd.DataFrame:
         return self._df
 
+    def lineage(
+        self,
+        name: str,
+        data: pd.DataFrame,
+        targets: T.Optional[str] = None,
+        predictions: T.Optional[str] = None,
+    ) -> T.Any:
+        return None
+
 
 # %% TESTS
 
@@ -39,8 +49,8 @@ def test_training_job(
 ) -> None:
     # 1. Setup Fake Data Readers
     # We wrap the conftest data in our MockReader
-    reader_inputs = MockReader(df=inputs)
-    reader_targets = MockReader(df=targets)
+    reader_inputs = cast(datasets.ReaderKind, MockReader(df=inputs))
+    reader_targets = cast(datasets.ReaderKind, MockReader(df=targets))
 
     # 2. Configure the Job
     # We manually initialize the class, overriding the default ParquetReaders
@@ -48,8 +58,6 @@ def test_training_job(
         # Inject Fake Data for ALL 4 slots
         inputs_train=reader_inputs,
         targets_train=reader_targets,
-        inputs_test=reader_inputs,  # Reuse same fake data for test
-        targets_test=reader_targets,
         # Fast Hyperparameters for testing
         n_estimators=2,
         max_depth=2,
@@ -60,9 +68,6 @@ def test_training_job(
         saver=registries.CustomSaver(),
         signer=signers.InferSigner(),
         registry=registries.MlflowRegister(),
-        fatigue_threshold=0.7,
-        test_size=0.2,
-        random_state=42,
     )
 
     # 3. Run the Job

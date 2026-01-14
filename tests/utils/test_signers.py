@@ -1,6 +1,6 @@
 import pandas as pd
-
 from fatigue.utils import signers
+import typing as T
 
 
 def test_infer_signer():
@@ -15,7 +15,7 @@ def test_infer_signer():
     signer = signers.InferSigner()
 
     # 3. Generate the signature
-    signature = signer.sign(inputs, outputs)
+    signature = signer.sign(T.cast(T.Any, inputs), T.cast(T.Any, outputs))
 
     # 4. Verify the signature structure (MLflow specific attributes)
     # Check inputs

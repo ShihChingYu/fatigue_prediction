@@ -34,7 +34,7 @@ dev = [
     "pytest>=8.3.5",
     "bandit>=1.8.3",
     "coverage>=7.6.12",
-    "mypy>=1.15.0",
+    "mypy==1.7.1",
     "pandera[mypy]>=0.23.0",
     "pytest-cov>=6.0.0",
     "pytest-mock>=3.14.0",
@@ -46,6 +46,8 @@ dev = [
     "pdoc>=15.0.1",
     "seaborn>=0.13.2",
     "typing-extensions>=4.15.0",
+    "types-pyyaml>=6.0.12.20250915",
+    "types-protobuf>=6.32.1.20251210",
 ]
 
 notebook = ["ipykernel>=6.29.5", "nbformat>=5.10.4"]
@@ -108,3 +110,7 @@ fatigue = 'fatigue.scripts:main'
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[[tool.mypy.overrides]]
+module = "google.*"
+ignore_missing_imports = true

@@ -3,6 +3,7 @@
 # %% IMPORTS
 
 import typing as T
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -86,7 +87,7 @@ def inputs_samples() -> schemas.ModelInputs:
         }
     )
     df = df.set_index("index")
-    return schemas.ModelInputsSchema.validate(df)
+    return cast(schemas.ModelInputs, schemas.ModelInputsSchema.validate(df))
 
 
 @pytest.fixture(scope="session")
@@ -96,7 +97,7 @@ def targets_samples() -> schemas.Targets:
         {"fatigue_score": np.random.uniform(0, 1, size=N_SAMPLES), "index": np.arange(N_SAMPLES)}
     )
     df = df.set_index("index")
-    return schemas.TargetsSchema.validate(df)
+    return cast(schemas.Targets, schemas.TargetsSchema.validate(df))
 
 
 @pytest.fixture(scope="session")
@@ -106,7 +107,7 @@ def outputs_samples() -> schemas.Outputs:
         {"prediction": np.random.uniform(0, 1, size=N_SAMPLES), "index": np.arange(N_SAMPLES)}
     )
     df = df.set_index("index")
-    return schemas.OutputsSchema.validate(df)
+    return cast(schemas.Outputs, schemas.OutputsSchema.validate(df))
 
 
 # %% FIXTURES - DATASETS (READERS)
@@ -122,7 +123,7 @@ class MockReader(datasets.Reader):
     def read(self) -> pd.DataFrame:
         return self._df
 
-    def lineage(self, name, data, targets=None, predictions=None):
+    def lineage(self, name, data, targets=None, predictions=None) -> T.Any:
         return None
 
 
@@ -159,11 +160,11 @@ def train_test_sets(
     # Simple manual split for testing
     split_idx = int(N_SAMPLES * 0.8)
 
-    inputs_train = inputs_samples.iloc[:split_idx]
-    inputs_test = inputs_samples.iloc[split_idx:]
+    inputs_train = cast(schemas.ModelInputs, inputs_samples.iloc[:split_idx])
+    inputs_test = cast(schemas.ModelInputs, inputs_samples.iloc[split_idx:])
 
-    targets_train = targets_samples.iloc[:split_idx]
-    targets_test = targets_samples.iloc[split_idx:]
+    targets_train = cast(schemas.Targets, targets_samples.iloc[:split_idx])
+    targets_test = cast(schemas.Targets, targets_samples.iloc[split_idx:])
 
     return inputs_train, targets_train, inputs_test, targets_test
 
@@ -197,7 +198,7 @@ def targets(targets_samples):
 
 @pytest.fixture
 def signature(inputs, outputs):
-    return signers.InferSigner().sign(inputs, outputs)
+    return signers.InferSigner().sign(T.cast(T.Any, inputs), T.cast(T.Any, outputs))
 
 
 @pytest.fixture

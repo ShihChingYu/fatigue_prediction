@@ -3,8 +3,10 @@
 # %% IMPORTS
 
 import typing as T
+from typing import cast
 
 import mlflow
+import pandera as pa
 import pydantic as pdt
 
 # Internal imports
@@ -66,8 +68,6 @@ class TrainingJob(base.Job):
     def run(self) -> base.Locals:
         # 1. Setup
         logger = self.logger_service.logger()
-        client = self.mlflow_service.client()
-
         with self.mlflow_service.run_context(run_config=self.run_config) as run:
             logger.info(f"Starting Training Run: {run.info.run_id}")
 
@@ -75,6 +75,17 @@ class TrainingJob(base.Job):
             logger.info("Reading Training Data...")
             inputs_train = schemas.ModelInputsSchema.check(self.inputs_train.read())
             targets_train = schemas.TargetsSchema.check(self.targets_train.read())
+            logger.debug(f"Train Shape: {inputs_train.shape}")
+
+            # Cast inputs to satisfy Pandera strict typing
+            inputs_train_raw = schemas.ModelInputsSchema.check(self.inputs_train.read())
+            inputs_train = cast(
+                pa.typing.DataFrame[schemas.ModelInputsSchema], inputs_train.head(5)
+            )
+
+            targets_train_raw = schemas.TargetsSchema.check(self.targets_train.read())
+            targets_train = cast(pa.typing.DataFrame[schemas.TargetsSchema], targets_train_raw)
+
             logger.debug(f"Train Shape: {inputs_train.shape}")
 
             # Log Lineage
@@ -98,13 +109,26 @@ class TrainingJob(base.Job):
             )
             self.model.fit(inputs=inputs_train, targets=targets_train)
 
-            # Create a signature using a small sample of training data
-            sample_output = self.model.predict(inputs=inputs_train.head(5))
-            signature = self.signer.sign(inputs=inputs_train.head(5), outputs=sample_output)
+            # 1. Create a variable for the sample and CAST it immediately
+            sample_inputs = cast(
+                pa.typing.DataFrame[schemas.ModelInputsSchema], inputs_train.head(5)
+            )
 
-            # Save and Register
+            # 2. Use that variable for prediction
+            sample_output_raw = self.model.predict(inputs=sample_inputs)
+
+            # 3. Cast the output too
+            sample_output = cast(pa.typing.DataFrame[schemas.OutputsSchema], sample_output_raw)
+
+            # 4. Use the CASTED variables for signing and saving
+            signature = self.signer.sign(
+                inputs=T.cast(T.Any, sample_inputs), outputs=T.cast(T.Any, sample_output)
+            )
+
             model_info = self.saver.save(
-                model=self.model, signature=signature, input_example=inputs_train.head(5)
+                model=self.model,
+                signature=signature,
+                input_example=sample_inputs,
             )
             model_version = self.registry.register(
                 name=self.mlflow_service.registry_name, model_uri=model_info.model_uri
