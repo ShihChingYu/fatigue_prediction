@@ -1,0 +1,33 @@
+# .github/workflows/check.yaml
+name: Check
+
+# Trigger on Pull Requests (all branches) and Push (main only)
+on:
+  pull_request:
+    branches:
+      - '*'
+  push:
+    branches:
+      - main
+
+# Cancel old runs if a new commit is pushed to the same branch
+concurrency:
+  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Get the code
+      - uses: actions/checkout@v4
+
+      # 2. Run the Custom Setup
+      - uses: ./.github/actions/setup
+
+      # 3. Install dependencies
+      - run: uv sync --frozen
+
+      # 4. Run Quality Checks
+      - name: Run Project Checks
+        run: just project-check

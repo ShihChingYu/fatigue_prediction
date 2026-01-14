@@ -1,0 +1,21 @@
+# .github/actions/setup/action.yml
+name: Setup
+description: Setup environment (Python, uv, Just)
+runs:
+  using: composite
+  steps:
+    # 1. Install uv (Fast package manager)
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        enable-cache: true
+
+    # 2. Setup Python (Reads version from .python-version if it exists)
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version-file: ".python-version"
+
+    # 3. Setup Just (Command runner)
+    - name: Setup Just
+      uses: extractions/setup-just@v2
