@@ -30,3 +30,5 @@ import 'tasks/install.just'
 import 'tasks/mlflow.just'
 import 'tasks/project.just'
 import 'tasks/package.just'
+
+project-check: check-format check-code check-type check-security
