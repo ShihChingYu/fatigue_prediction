@@ -49,6 +49,7 @@ pipeline:
     just project-run promotion
     just project-run inference
     just project-run explanation
+    just project-run promotion
 
 # Clean up temporary logs and local parquet results
 [group('project')]

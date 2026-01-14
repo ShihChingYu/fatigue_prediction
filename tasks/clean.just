@@ -11,6 +11,7 @@ clean-build:
     rm -rf dist/
     rm -rf build/
     rm -rf *.egg-info
+    rm -rf constraints.txt
 
 # clean docs folder (created by 'mkdocs build')
 [group('clean')]

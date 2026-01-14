@@ -20,16 +20,13 @@ default:
     @just --list
 
 # IMPORTS
-# These look for files in the 'tasks/' folder.
-# Ensure these files exist before uncommenting!
-
 import 'tasks/check.just'
 import 'tasks/clean.just'
 import 'tasks/commit.just'
-# import 'tasks/doc.just'
-# import 'tasks/docker.just'
+import 'tasks/doc.just'
+import 'tasks/docker.just'
 import 'tasks/format.just'
 import 'tasks/install.just'
 import 'tasks/mlflow.just'
 import 'tasks/project.just'
-# import 'tasks/package.just'
+import 'tasks/package.just'
