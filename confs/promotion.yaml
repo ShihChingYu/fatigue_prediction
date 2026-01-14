@@ -1,0 +1,4 @@
+job:
+  KIND: PromotionJob
+  alias: Champion
+  # version: null  <-- Leave commented or null to auto-select the latest

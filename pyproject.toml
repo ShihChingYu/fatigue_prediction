@@ -1,0 +1,110 @@
+[project]
+name = "fatigue_prediction"
+version = "0.1.0"
+description = "Use heart rate and sleep data to predict pvt, which is the indication of fatigue in different probabilities"
+authors = [{ name = "Amy Shih", email = "cyshih30@gmail.com" }]
+readme = "README.md"
+license = { file = "LICENSE.txt" }
+keywords = ["mlops", "AI", "data engineering", "safety", "machine learning"]
+requires-python = ">=3.9,<3.10"
+dependencies = [
+    "loguru>=0.7.3",
+    "matplotlib<3.8",
+    "mlflow<3.2",
+    "numpy<2.0",
+    "omegaconf>=2.3.0",
+    "pandas>=2.2.3",
+    "pandera>=0.23.0",
+    "plotly>=6.0.0",
+    "plyer>=2.1.0",
+    "psutil>=7.0.0",
+    "pyarrow>=19.0.1",
+    "pydantic-settings>=2.8.1",
+    "pydantic>=2.10.6",
+    "pynvml>=12.0.0",
+    "scikit-learn>=1.6.1",
+    "setuptools>=75.8.2",
+    "shap",
+    "hatchling>=1.27.0",
+    "optuna>=4.6.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+    "bandit>=1.8.3",
+    "coverage>=7.6.12",
+    "mypy>=1.15.0",
+    "pandera[mypy]>=0.23.0",
+    "pytest-cov>=6.0.0",
+    "pytest-mock>=3.14.0",
+    "pytest-xdist>=3.6.1",
+    "ruff>=0.9.9",
+    "commitizen>=4.4.1",
+    "pre-commit>=4.1.0",
+    "rust-just>=1.39.0",
+    "pdoc>=15.0.1",
+    "seaborn>=0.13.2",
+    "typing-extensions>=4.15.0",
+]
+
+notebook = ["ipykernel>=6.29.5", "nbformat>=5.10.4"]
+
+[tool.uv]
+default-groups = ["dev", "notebook"]
+
+[tool.bandit]
+targets = ["src"]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "v$version"
+version_scheme = "pep440"
+version_provider = "pep621"
+changelog_start_rev = "v1.0.0"
+update_changelog_on_bump = true
+
+[tool.coverage.run]
+branch = true
+source = ["src"]
+omit = ["__main__.py"]
+
+[tool.mypy]
+pretty = true
+python_version = "3.9"
+check_untyped_defs = true
+ignore_missing_imports = true
+plugins = ["pandera.mypy", "pydantic.mypy"]
+
+[tool.pytest.ini_options]
+addopts = "--verbosity=2"
+pythonpath = ["src"]
+
+[tool.ruff]
+fix = true
+indent-width = 4
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["D100", "D103"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fatigue"]
+
+# SCRIPTS
+
+[project.scripts]
+fatigue = 'fatigue.scripts:main'
+
+# SYSTEMS
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

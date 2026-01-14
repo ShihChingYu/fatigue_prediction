@@ -1,0 +1,22 @@
+job:
+  KIND: TuningJob
+
+  # 1. Data Sources (Must match where your main.py saved them)
+  inputs:
+    KIND: ParquetReader
+    path: data/processed/inputs_train.parquet
+  targets:
+    KIND: ParquetReader
+    path: data/processed/targets_train.parquet
+
+  # 2. Tuning Settings
+  n_trials: 50             # Higher = Better results, longer wait
+  n_splits: 5              # 5-Fold Group CV
+  fatigue_threshold: 0.26 # For tracking Recall
+
+  # 3. Registry Settings
+  run_config:
+    name: "Fatigue_Optuna_Tuning"
+    tags:
+      project: "fatigue"
+      mode: "tuning"

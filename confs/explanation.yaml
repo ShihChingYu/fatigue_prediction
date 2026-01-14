@@ -1,0 +1,21 @@
+job:
+  KIND: ExplanationsJob
+
+  # Input: Use the Test set (or inference input) to generate explanations
+  inputs_samples:
+    KIND: ParquetReader
+    path: data/processed/inputs_test.parquet
+    limit: 100  # SHAP is slow; keep this small (e.g., 100-500)
+
+  # Output: Global Feature Importance (Which features matter most overall?)
+  models_explanations:
+    KIND: ParquetWriter
+    path: outputs/models_explanations.parquet
+
+  # Output: Local SHAP Values (Why did the model predict X for these specific rows?)
+  samples_explanations:
+    KIND: ParquetWriter
+    path: outputs/samples_explanations.parquet
+
+  # Model: Use the latest version registered in MLflow
+  alias_or_version: "latest"

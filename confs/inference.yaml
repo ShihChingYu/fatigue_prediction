@@ -1,0 +1,21 @@
+job:
+  KIND: InferenceJob
+
+  # How many rows to process (remove or set to null for full dataset)
+  limit: 200000
+
+  # Use the version you just evaluated (e.g., version 7)
+  alias_or_version: 7
+
+  fatigue_threshold: 0.45 # the threshold decided from evaluation
+
+
+  # Read the 224k row file we just created
+  inputs:
+    KIND: ParquetReader
+    path: data/processed/continuous_features.parquet
+
+  # Save the results to a new file
+  outputs:
+    KIND: ParquetWriter
+    path: data/predictions/fatigue_predictions.parquet

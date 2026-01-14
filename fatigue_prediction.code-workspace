@@ -1,0 +1,36 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		// General editor settings
+		"editor.formatOnSave": true, // Automatically format code on each save
+		// Python-specific settings
+		"python.defaultInterpreterPath": ".venv/bin/python", // Points to the project's virtual environment
+		"python.testing.pytestEnabled": true, // Enables Pytest for test discovery
+		"python.testing.pytestArgs": [
+			"tests"
+		], // Specifies the directory for tests
+		// Language-specific editor settings for Python
+		"[python]": {
+			"editor.codeActionsOnSave": {
+				"source.organizeImports": "explicit" // Automatically organize imports on save
+			},
+			"editor.defaultFormatter": "ms-python.python" // Sets the default formatter for Python files
+		}
+	},
+	"extensions": {
+		"recommendations": [
+			// Essential Python tooling
+			"ms-python.python",
+			"ms-python.vscode-pylance",
+			// Linting, formatting, and type checking
+			"charliermarsh.ruff",
+			"ms-python.mypy-type-checker",
+			// Other useful tools
+			"redhat.vscode-yaml" // For editing YAML files (e.g., CI/CD pipelines)
+		]
+	}
+}

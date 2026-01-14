@@ -1,0 +1,29 @@
+# fatigue/confs/training.yaml
+
+job:
+  KIND: TrainingJob
+
+  # 1. Hyperparameters
+  bootstrap: True
+  max_depth: 12
+  max_features: 'sqrt'
+  min_samples_leaf: 4
+  min_samples_split: 17
+  n_estimators: 82
+  # fatigue_threshold: 0.23
+
+  # 2. Data Paths (Pointing to your processed data)
+  inputs_train:
+    KIND: ParquetReader
+    path: data/processed/inputs_train.parquet
+
+  targets_train:
+    KIND: ParquetReader
+    path: data/processed/targets_train.parquet
+
+  # 3. Registry Settings
+  run_config:
+    name: "Fatigue_RF_Training"
+    tags:
+      project: "fatigue"
+      model: "random_forest"

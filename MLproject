@@ -1,0 +1,10 @@
+name: fatigue
+
+# Use the environment exported by your just task
+python_env: python_env.yaml
+
+entry_points:
+  main:
+    parameters:
+      conf_file: {type: path}
+    command: "PYTHONPATH=src python src/fatigue/scripts.py {conf_file}"

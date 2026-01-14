@@ -1,0 +1,10 @@
+job:
+  KIND: EvaluationsJob
+  fatigue_threshold: 0.26
+  alias_or_version: 7
+  inputs_test:
+    KIND: ParquetReader
+    path: data/processed/inputs_test.parquet
+  targets_test:
+    KIND: ParquetReader
+    path: data/processed/targets_test.parquet

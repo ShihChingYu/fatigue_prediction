@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+.env
+
+# Data & Models (IMPORTANT)
+data/
+models/
+outputs/
+mlruns/
+*.pkl
+*.parquet
+mlruns_test/
+
+# Jupyter
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+# IDE
+.vscode/
+.idea/
+
+
+# unused files
+./notes
+
+# raw data
+data/raw/
