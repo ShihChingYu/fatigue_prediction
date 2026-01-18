@@ -5,12 +5,17 @@
 import typing as T
 
 import mlflow
+import mlflow.data
 import numpy as np
 import optuna
+import pandera as pa
 import pydantic as pdt
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.impute import SimpleImputer
 from sklearn.metrics import make_scorer, mean_squared_error, recall_score
 from sklearn.model_selection import GroupKFold, cross_validate
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 # Internal imports
 from fatigue.core import schemas
@@ -58,6 +63,31 @@ class TuningJob(base.Job):
             # 2. Read Data
             inputs = schemas.ModelInputsSchema.check(self.inputs.read())
             targets = schemas.TargetsSchema.check(self.targets.read())
+            y = targets["fatigue_score"]
+
+            inputs_sorted = inputs.sort_values(by=["user_id"]).reset_index(drop=True)
+            inputs = T.cast(pa.typing.DataFrame[schemas.ModelInputsSchema], inputs_sorted)
+
+            # --- DATA LINEAGE ---
+            logger.info("Hashing dataset for Lineage...")
+
+            lineage_df = inputs.assign(fatigue_score=y)
+            logger.debug(f"Lineage Columns: {lineage_df.columns.tolist()}")
+
+            # NOTE: If this crashes with "Out of Memory", change inputs to inputs.head(100)
+            dataset = mlflow.data.from_pandas(
+                inputs,
+                source=self.inputs.path,
+                name="tuning_data",
+            )
+            mlflow.log_input(dataset, context="tuning")
+            logger.info("Data Lineage established.")
+
+            # --- MODEL LINEAGE (ALGORITHM TAGGING) ---
+            mlflow.set_tag("model_family", "RandomForest")
+            mlflow.set_tag("library", "scikit-learn")
+            mlflow.set_tag("task", "regression")
+            # -----------------------------------------------
 
             if "user_id" in inputs.columns:
                 groups = inputs["user_id"]
@@ -67,24 +97,30 @@ class TuningJob(base.Job):
                 groups = None
                 X = inputs
 
-            y = targets["fatigue_score"]
-
             # 3. Define Objective
             def objective(trial: optuna.Trial) -> float:
                 # A. Define Search Space (Based on your training.yaml + range)
                 params = {
-                    "n_estimators": trial.suggest_int("n_estimators", 50, 300),
-                    "max_depth": trial.suggest_int("max_depth", 5, 25),
-                    "min_samples_split": trial.suggest_int("min_samples_split", 2, 20),
-                    "min_samples_leaf": trial.suggest_int("min_samples_leaf", 1, 10),
-                    "max_features": trial.suggest_categorical(
+                    "model__n_estimators": trial.suggest_int("n_estimators", 50, 300),
+                    "model__max_depth": trial.suggest_int("max_depth", 5, 25),
+                    "model__min_samples_split": trial.suggest_int("min_samples_split", 2, 20),
+                    "model__min_samples_leaf": trial.suggest_int("min_samples_leaf", 1, 10),
+                    "model__max_features": trial.suggest_categorical(
                         "max_features", ["sqrt", "log2", 1.0]
                     ),
-                    "bootstrap": trial.suggest_categorical("bootstrap", [True, False]),
+                    "model__bootstrap": trial.suggest_categorical("bootstrap", [True, False]),
                 }
 
-                # B. Initialize Model
-                sklearn_model = RandomForestRegressor(**params, random_state=42)
+                # B. Initialize Pipeline (Impute -> Scale -> Model)
+                pipeline = Pipeline(
+                    [
+                        ("imputer", SimpleImputer(strategy="median")),  # Fill NaNs
+                        ("scaler", StandardScaler()),  # Scale features
+                        ("model", RandomForestRegressor(random_state=42)),  # Predict
+                    ]
+                )
+                # Apply the params from Optuna to the pipeline
+                pipeline.set_params(**params)
 
                 # 2. Define Custom Scorers
                 def rmse_func(y_t, y_p):
@@ -107,7 +143,7 @@ class TuningJob(base.Job):
 
                 # cross_validate gives us both metrics
                 scores = cross_validate(
-                    sklearn_model, X, y, groups=groups, cv=cv, scoring=scorers, n_jobs=-1
+                    pipeline, X, y, groups=groups, cv=cv, scoring=scorers, n_jobs=-1
                 )
 
                 # E. Aggregate Scores
@@ -120,7 +156,8 @@ class TuningJob(base.Job):
                 return avg_rmse
 
             # 4. Run Optimization
-            study = optuna.create_study(direction="minimize")
+            sampler = optuna.samplers.TPESampler(seed=42)
+            study = optuna.create_study(direction="minimize", sampler=sampler)
             study.optimize(objective, n_trials=self.n_trials)
 
             # 5. Log Best Results

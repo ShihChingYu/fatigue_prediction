@@ -1,0 +1,36 @@
+job:
+  KIND: MonitoringJob
+  model_version_used: "fatigue:3"
+
+  # 1. Reference: Your Training Data (Has 'fatigue_label', etc.)
+  reference_data:
+    KIND: ParquetReader
+    path: "data/processed/inputs_train.parquet"
+
+  # 2. Current: Your Inference Data (No target, maybe different IDs)
+  current_data:
+    KIND: ParquetReader
+    path: "data/monitor/inputs_inference.parquet"
+
+  # 3. EXPLICIT FEATURE LIST
+  numerical_features:
+    - "mean_hr_5min"
+    - "hr_volatility_5min"
+    - "hr_jumpiness_5min"
+    - "hr_mean_total"
+    - "hr_std_total"
+    - "stress_cv"
+    - "hours_awake"
+    - "cum_sleep_debt"
+    - "sleep_inertia_idx"
+    - "circadian_sin"
+    - "circadian_cos"
+    - "hr_zscore"
+
+  # (Optional) Output configuration
+  output_path: "data/monitor/drift_report.html"
+
+  mlflow_service:
+    tracking_uri: "azureml://eastasia.api.azureml.ms/mlflow/v1.0/subscriptions/3d0073e4-c3b1-45bc-9f1b-a38899e7bda2/resourceGroups/Dalhousie/providers/Microsoft.MachineLearningServices/workspaces/fatigue_test"
+    registry_uri: "azureml://eastasia.api.azureml.ms/mlflow/v1.0/subscriptions/3d0073e4-c3b1-45bc-9f1b-a38899e7bda2/resourceGroups/Dalhousie/providers/Microsoft.MachineLearningServices/workspaces/fatigue_test"
+    experiment_name: "Feature Drift Monitoring V2"

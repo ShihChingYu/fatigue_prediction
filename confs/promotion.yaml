@@ -1,4 +1,9 @@
 job:
   KIND: PromotionJob
-  alias: Champion
-  # version: null  <-- Leave commented or null to auto-select the latest
+  # alias: Champion
+  # version: null  (Auto-select latest)
+  mlflow_service:
+    tracking_uri: "azureml://eastasia.api.azureml.ms/mlflow/v1.0/subscriptions/3d0073e4-c3b1-45bc-9f1b-a38899e7bda2/resourceGroups/Dalhousie/providers/Microsoft.MachineLearningServices/workspaces/fatigue_test"
+    registry_uri: "azureml://eastasia.api.azureml.ms/mlflow/v1.0/subscriptions/3d0073e4-c3b1-45bc-9f1b-a38899e7bda2/resourceGroups/Dalhousie/providers/Microsoft.MachineLearningServices/workspaces/fatigue_test"
+    registry_name: "fatigue"
+    experiment_name: "Promotion"

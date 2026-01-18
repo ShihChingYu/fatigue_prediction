@@ -20,3 +20,8 @@ job:
     tags:
       project: "fatigue"
       mode: "tuning"
+
+  mlflow_service:
+    tracking_uri: "azureml://eastasia.api.azureml.ms/mlflow/v1.0/subscriptions/3d0073e4-c3b1-45bc-9f1b-a38899e7bda2/resourceGroups/Dalhousie/providers/Microsoft.MachineLearningServices/workspaces/fatigue_test"
+    registry_uri: "azureml://eastasia.api.azureml.ms/mlflow/v1.0/subscriptions/3d0073e4-c3b1-45bc-9f1b-a38899e7bda2/resourceGroups/Dalhousie/providers/Microsoft.MachineLearningServices/workspaces/fatigue_test"
+    experiment_name: "Tuning"

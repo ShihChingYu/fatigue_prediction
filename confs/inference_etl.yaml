@@ -1,0 +1,18 @@
+job:
+  KIND: InferenceETLJob
+
+  inputs:
+    raw_path: "data/raw"
+    hr_pattern: "HR_*.csv"
+    sleep_pattern: "sleep_*.csv"
+
+  outputs:
+    inputs_train: "data/monitor/inputs_inference.parquet"
+    ids_train: "data/monitor/ids_inference.parquet"
+
+    targets_train: "data/monitor/ignore_targets.parquet"
+    inputs_test: "data/monitor/ignore_test.parquet"
+    targets_test: "data/monitor/ignore_test_targets.parquet"
+    ids_test: "data/monitor/ignore_test_ids.parquet"
+    inputs_sample: "data/monitor/ignore_sample.parquet"
+    targets_sample: "data/monitor/ignore_sample_targets.parquet"

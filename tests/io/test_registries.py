@@ -44,7 +44,7 @@ def test_uri_for_model_alias_or_version() -> None:
 def test_custom_pipeline(
     model: models.Model,
     inputs: schemas.Inputs,
-    signature: signers.Signature,
+    signature: signers.Signer,
     mlflow_service: services.MlflowService,
 ) -> None:
     # given
@@ -89,7 +89,7 @@ def test_custom_pipeline(
 def test_builtin_pipeline(
     model: models.Model,
     inputs: schemas.Inputs,
-    signature: signers.Signature,
+    signature: signers.Signer,
     mlflow_service: services.MlflowService,
 ) -> None:
     # given

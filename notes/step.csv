@@ -1,62 +1,16 @@
-"Phase 0: The MLOps ""Skeleton"" (Infrastructure)"
-"Goal: Set up a clean, automated workspace before writing complex logic."
-Order	File Path	Purpose	Related Command
-1	tasks/install.just	Defines how to install libraries (pip install).	just install
-2	Justfile	"The ""remote control"" that imports all tasks."	just
-3	pyproject.toml	"Lists dependencies (pandas, mlflow, pydantic)."	just install
-4	tasks/clean.just	Removes garbage files (__pycache__).	just clean
-5	tasks/format.just	Sets up auto-formatting (ruff).	just format
-6	tasks/check.just	"Sets up testing (pytest, mypy, bandit)."	just check
-7	src/fatigue_detect/__init__.py	Makes your folder a Python package.	-
+graph LR
+    A[Mobile App] -->|Send Features| B[Backend API]
+    B -->|Real-time Inference| I[Model Inference Service]
+    I -->|Prediction| B
+    B -->|Return Result| A
 
-Phase 1: The Foundation (Contracts & Services)
-Goal: Define what data looks like and how to log it.
-Order	File Path	Purpose	Testing / Validation
-8	src/fatigue_detect/core/schemas.py	"Defines InputSchema (HR > 0, Sleep > 0)."	-
-9	tests/core/test_schemas.py	Test: Ensures schemas reject bad data.	just check
-10	src/fatigue_detect/io/services.py	"Sets up Logger, Alerter, and MLflow connection."	-
-11	tasks/mlflow.just	Task to launch the MLflow UI.	just mlflow
-12	tasks/commit.just	Task to save your progress to Git.	just commit
+    B -->|Store Metadata| C[(SQL DB)]
+    B -->|Store Features| D[(Azure Blob)]
 
-"Phase 2: The Components (Data, Math, Models)"
-Goal: Build the tools your jobs will use.
-Order	File Path	Purpose	Testing / Validation
-13	src/fatigue_detect/io/datasets.py	Readers for CSV/Parquet files.	-
-14	tests/io/test_datasets.py	Test: Can we read a dummy CSV?	just check
-15	src/fatigue_detect/core/metrics.py	"Wrappers for recall_score, f1_score."	-
-16	tests/core/test_metrics.py	Test: Do metrics calculate correctly?	just check
-17	src/fatigue_detect/modeling/models.py	Wrapper for RandomForestClassifier.	-
-18	tests/modeling/test_models.py	Test: Does the model fit/predict?	just check
-19	src/fatigue_detect/io/registries.py	Logic to Save/Load models to MLflow.	-
-20	src/fatigue_detect/jobs/base.py	"The ""Parent Job"" (handles logging/context)."	-
+    D --> E{Drift Detector}
+    E -->|Drift > Threshold| F[Retraining Job]
 
-Phase 3: The Assembly (Training & Tuning Jobs)
-"Goal: Create the ""Factory"" that makes the model."
-Order	File Path	Purpose	Configuration
-21	src/fatigue_detect/utils/splitters.py	"Logic to split data (e.g., by User ID)."	-
-22	src/fatigue_detect/jobs/training.py	The Job that trains & registers the model.	-
-23	src/fatigue_detect/scripts.py	The CLI adapter (connects YAML to Python).	-
-24	confs/training.yaml	"Settings: n_estimators=100, depth=10."	Run: python scripts.py ...
-25	tests/jobs/test_training.py	Test: Runs a tiny training job to ensure no crashes.	just check
-26	src/fatigue_detect/utils/searchers.py	Grid Search logic.	-
-27	src/fatigue_detect/jobs/tuning.py	The Job that finds best hyperparameters.	-
-28	confs/tuning.yaml	"Settings: depth=[3, 5, 7]."	-
+    F -->|Track Experiments| G[MLflow]
+    F -->|Register Model| H[Model Registry]
 
-Phase 4: The Quality Assurance (Evaluation & Explainability)
-Goal: Audit the model before deployment.
-Order	File Path	Purpose	Configuration
-29	src/fatigue_detect/jobs/evaluations.py	Audits the model against a test set.	-
-30	confs/evaluations.yaml	Settings: thresholds: {recall: 0.9}.	-
-31	src/fatigue_detect/jobs/explanations.py	Generates Feature Importance / SHAP.	-
-32	confs/explanations.yaml	Settings: sample_size: 500.	-
-
-Phase 5: The Deployment (Inference & Promotion)
-Goal: Deliver the model to the world (iPad).
-Order	File Path	Purpose	Configuration
-33	src/fatigue_detect/jobs/promotion.py	Tags a version as @Champion.	-
-34	confs/promotion.yaml	"Settings: alias: ""Champion""."	-
-35	src/fatigue_detect/jobs/inference.py	"Batch scoring (e.g., historical analysis)."	-
-36	confs/inference.yaml	"Settings: input: ""last_year.csv""."	-
-37	tasks/package.just	Builds the library for distribution.	just package
-38	tasks/doc.just	Generates documentation.	just doc
-39	tasks/docker.just	(Optional) containerizes the project.	just docker
+    H -->|Deploy New Model| I

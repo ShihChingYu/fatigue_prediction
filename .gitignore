@@ -13,6 +13,9 @@ mlruns/
 *.pkl
 *.parquet
 mlruns_test/
+mlartifacts/
+*.html
+notes/
 
 # Jupyter
 .ipynb_checkpoints
@@ -21,10 +24,6 @@ mlruns_test/
 # IDE
 .vscode/
 .idea/
-
-
-# unused files
-./notes
 
 # raw data
 data/raw/

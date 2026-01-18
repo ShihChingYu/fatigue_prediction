@@ -5,10 +5,12 @@
 import typing as T
 
 import mlflow
+import pandas as pd
 import pydantic as pdt
+import shap
 
 from fatigue.core import schemas
-from fatigue.io import datasets, registries
+from fatigue.io import datasets, registries, services
 from fatigue.jobs import base
 
 # %% JOBS
@@ -27,6 +29,10 @@ class ExplanationsJob(base.Job):
 
     KIND: T.Literal["ExplanationsJob"] = "ExplanationsJob"
 
+    run_config: services.MlflowService.RunConfig = services.MlflowService.RunConfig(
+        name="Model Explanability (SHAP)"
+    )
+
     # Samples
     inputs_samples: datasets.ReaderKind = pdt.Field(..., discriminator="KIND")
     # Explanations
@@ -40,60 +46,108 @@ class ExplanationsJob(base.Job):
     def run(self) -> base.Locals:
         # services
         logger = self.logger_service.logger()
-        logger.info("With logger: {}", logger)
+        with self.mlflow_service.run_context(run_config=self.run_config) as run:
+            logger.info("With logger: {}", logger)
 
-        # inputs
-        logger.info("Read samples: {}", self.inputs_samples)
-        inputs_samples = self.inputs_samples.read()  # unchecked!
+            raw_samples = self.inputs_samples.read()
 
-        # ADAPTED: Use the specific Fatigue schema
-        inputs_samples = schemas.ModelInputsSchema.check(inputs_samples)
-        logger.debug("- Inputs samples shape: {}", inputs_samples.shape)
+            # Log Data Lineage
+            mlflow.log_input(
+                self.inputs_samples.lineage(name="explanation_samples", data=raw_samples),
+                context="explanation",
+            )
 
-        # model
-        logger.info("With model: {}", self.mlflow_service.registry_name)
-        model_uri = registries.uri_for_model_alias_or_version(
-            name=self.mlflow_service.registry_name,
-            alias_or_version=self.alias_or_version,
-        )
-        logger.debug("- Model URI: {}", model_uri)
+            # Validate Schema
+            inputs_validated = schemas.ModelInputsSchema.check(raw_samples)
+            logger.info(f"Loaded {len(inputs_validated)} samples for explanation.")
 
-        # loader
-        logger.info("Load model: {}", self.loader)
-        # Unwrap logic: Loader -> MLflow PyFunc -> Adapter -> FatigueRandomForestModel
-        model = self.loader.load(uri=model_uri).model.unwrap_python_model().model
-        logger.debug("- Model: {}", model)
+            # Drop user_id
+            # SHAP and the Model Pipeline only want numeric features.
+            if "user_id" in inputs_validated.columns:
+                inputs_samples = inputs_validated.drop(columns=["user_id"])
+            else:
+                inputs_samples = inputs_validated
 
-        # explanations
-        # - models (Global Feature Importance)
-        logger.info("Explain model: {}", model)
-        models_explanations = model.explain_model()
-        logger.debug("- Models explanations shape: {}", models_explanations.shape)
+            # 2. Load Model
+            model_uri = registries.uri_for_model_alias_or_version(
+                name=self.mlflow_service.registry_name,
+                alias_or_version=str(self.alias_or_version),
+            )
 
-        # - samples (SHAP Values for specific rows)
-        logger.info("Explain samples: {}", len(inputs_samples))
-        samples_explanations = model.explain_samples(inputs=inputs_samples)
-        logger.debug("- Samples explanations shape: {}", samples_explanations.shape)
+            # [TRACKING] Log Model Lineage
+            mlflow.log_param("model_uri", model_uri)
+            logger.info(f"Loading model from: {model_uri}")
 
-        # write
-        # - model
-        logger.info("Write models explanations: {}", self.models_explanations)
-        self.models_explanations.write(data=models_explanations)
+            # [FIX] Load as PyFunc -> Unwrap -> Get Pipeline
+            # We cannot use load_sklearn_model because it is wrapped in your Custom Class.
+            loaded_pyfunc = mlflow.pyfunc.load_model(model_uri)
 
-        # --- Log to MLflow for human readability ---
-        importance_df = models_explanations.sort_values(
-            by=models_explanations.columns[1], ascending=False
-        )
-        html_table = importance_df.to_html(index=False, classes="table table-striped")
-        mlflow.log_text(html_table, "feature_importance.html")
+            # unwrapping the 'FatigueWrapper' to get the real sklearn pipeline
+            pipeline = loaded_pyfunc.unwrap_python_model().model
 
-        # - samples
-        logger.info("Write samples explanations: {}", self.samples_explanations)
-        self.samples_explanations.write(data=samples_explanations)
+            # Split Pipeline: Preprocessor vs. Predictor
+            predictor = pipeline[-1]
+            preprocessor = pipeline[:-1]
 
-        # notify
-        self.alerts_service.notify(
-            title="Explanations Job Finished",
-            message=f"Features Count: {len(models_explanations)}",
-        )
+            logger.info(f"Predictor: {type(predictor).__name__}")
+
+            # Transform Data
+            # We must scale the data BEFORE giving it to SHAP,
+            # because the RF internally sees scaled numbers.
+            X_transformed = preprocessor.transform(inputs_samples)
+
+            # Get feature names (if possible) for better plots
+            try:
+                feature_names = preprocessor.get_feature_names_out()
+            except Exception:
+                feature_names = inputs_samples.columns
+
+            # Global Explanations (Feature Importance)
+            logger.info("Generating Global Feature Importance...")
+
+            if hasattr(predictor, "feature_importances_"):
+                importances = predictor.feature_importances_
+                models_explanations = pd.DataFrame(
+                    {"feature": feature_names, "importance": importances}
+                ).sort_values(by="importance", ascending=False)
+
+                # Write to parquet
+                self.models_explanations.write(data=models_explanations)
+
+                # Log HTML to Azure
+                html_table = models_explanations.to_html(index=False, classes="table")
+                mlflow.log_text(html_table, "global_feature_importance.html")
+            else:
+                logger.warning("Model does not support native feature importance.")
+
+            # 6. Local Explanations (SHAP)
+            logger.info("Generating SHAP Values...")
+            explainer = shap.TreeExplainer(predictor)
+            shap_values = explainer.shap_values(X_transformed)
+
+            if isinstance(shap_values, list):
+                shap_vals_array = shap_values[1]
+            else:
+                shap_vals_array = shap_values
+
+            # Convert to DataFrame
+            samples_explanations = pd.DataFrame(shap_vals_array, columns=feature_names)
+
+            # Save
+            self.samples_explanations.write(data=samples_explanations)
+
+            # Log a SHAP Summary Plot to Azure
+            import matplotlib.pyplot as plt
+
+            plt.figure(figsize=(10, 6))
+            shap.summary_plot(
+                shap_vals_array, X_transformed, feature_names=feature_names, show=False
+            )
+            plt.tight_layout()
+            plt.savefig("shap_summary.png")
+            mlflow.log_artifact("shap_summary.png")
+            plt.close()
+
+            logger.success("Explanations generated and saved.")
+
         return locals()

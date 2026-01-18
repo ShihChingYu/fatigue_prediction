@@ -1,93 +1,82 @@
-"""Tests for the training job."""
+"""Test the Training Job logic."""
 
 # %% IMPORTS
 
-import typing as T
-from typing import cast
+import _pytest.capture as pc
+import mlflow
 
-import pandas as pd
+from fatigue import jobs
+from fatigue.io import datasets, services
 
-# Internal imports
-from fatigue.core import models, schemas
-from fatigue.io import datasets, registries, services
-from fatigue.jobs import training
-from fatigue.utils import signers
-
-# %% HELPERS
-
-
-class MockReader(datasets.Reader):
-    """A helper to feed fake dataframe into the job logic."""
-
-    KIND: T.Literal["MockReader"] = "MockReader"
-    _df: pd.DataFrame
-
-    # We use object.__setattr__ to bypass Pydantic immutability checks
-    def __init__(self, df: pd.DataFrame):
-        object.__setattr__(self, "_df", df)
-
-    def read(self) -> pd.DataFrame:
-        return self._df
-
-    def lineage(
-        self,
-        name: str,
-        data: pd.DataFrame,
-        targets: T.Optional[str] = None,
-        predictions: T.Optional[str] = None,
-    ) -> T.Any:
-        return None
-
-
-# %% TESTS
+# %% JOBS
 
 
 def test_training_job(
     mlflow_service: services.MlflowService,
-    inputs: schemas.Inputs,  # From conftest.py
-    targets: schemas.Targets,  # From conftest.py
+    alerts_service: services.AlertsService,
+    logger_service: services.LoggerService,
+    inputs_reader: datasets.ParquetReader,  # From conftest.py
+    targets_reader: datasets.ParquetReader,  # From conftest.py
+    capsys: pc.CaptureFixture[str],
 ) -> None:
-    # 1. Setup Fake Data Readers
-    # We wrap the conftest data in our MockReader
-    reader_inputs = cast(datasets.ReaderKind, MockReader(df=inputs))
-    reader_targets = cast(datasets.ReaderKind, MockReader(df=targets))
+    mlflow.set_tracking_uri(mlflow_service.tracking_uri)
+    mlflow.set_registry_uri(mlflow_service.registry_uri)
+    inputs_df_debug = inputs_reader.read()
+    targets_df_debug = targets_reader.read()
+    assert len(inputs_df_debug) == len(targets_df_debug)
 
-    # 2. Configure the Job
-    # We manually initialize the class, overriding the default ParquetReaders
-    job = training.TrainingJob.model_construct(
-        # Inject Fake Data for ALL 4 slots
-        inputs_train=reader_inputs,
-        targets_train=reader_targets,
-        # Fast Hyperparameters for testing
-        n_estimators=2,
-        max_depth=2,
-        # Services
-        mlflow_service=mlflow_service,
-        run_config=services.MlflowService.RunConfig(name="Test"),
-        model=models.FatigueRandomForestModel(),
-        saver=registries.CustomSaver(),
-        signer=signers.InferSigner(),
-        registry=registries.MlflowRegister(),
+    run_config = services.MlflowService.RunConfig(
+        name="TrainingTest", tags={"context": "test"}, description="Unit test for TrainingJob."
     )
 
-    # 3. Run the Job
-    # This executes the whole pipeline: Read -> Train -> Log -> Register
-    results = job.run()
+    # We define the hyperparams directly here (mimicking the YAML)
+    job = jobs.TrainingJob(
+        logger_service=logger_service,
+        alerts_service=alerts_service,
+        mlflow_service=mlflow_service,
+        run_config=run_config,
+        inputs_train=inputs_reader,
+        targets_train=targets_reader,
+        n_estimators=10,
+        max_depth=5,
+    )
 
-    # 4. Verify Results
+    out = job.run()
 
-    # Check MLflow Logging
+    # then
+    # --- 1. Variable Existence Check ---
+    expected_vars = {
+        "run",
+        "pipeline",
+        "inputs_train",
+        "targets_train",
+        "model_version",
+    }
+    assert expected_vars.issubset(out.keys()), f"Missing variables: {expected_vars - out.keys()}"
+
+    # --- 2. Data Integrity ---
+    assert out["inputs_train"].shape[0] > 0, "Inputs dataframe should not be empty"
+    assert out["targets_train"].shape[0] > 0, "Targets dataframe should not be empty"
+    # Verify we are predicting the correct target
+    assert "fatigue_score" in out["targets_train"].columns, "Targets should contain fatigue_score"
+
+    # --- 3. MLflow Tracking ---
     client = mlflow_service.client()
-    run_id = results["run"].info.run_id
-    run_data = client.get_run(run_id).data
+    run_id = out["run"].info.run_id
+    run = client.get_run(run_id)
 
-    # - Did we log the metrics we care about?
-    assert "val_rmse" in run_data.metrics
-    assert "val_recall" in run_data.metrics
+    assert run.info.status == "FINISHED"
 
-    # - Did we log the threshold?
-    assert "threshold" in run_data.metrics
+    # --- 4. Model Registry ---
+    assert out["model_version"] is not None, "Model Version object should exist"
 
-    # - Did we register a model version?
-    assert "model_version" in results
-    print(f"Test Passed! Model Version: {results['model_version'].version}")
+    reg_name = mlflow_service.registry_name
+    mv = client.get_model_version(reg_name, out["model_version"].version)
+
+    assert mv.name == reg_name, "Registered model name mismatch"
+    assert mv.run_id == run_id, "Registered model should point to this run"
+
+    # --- 5. Alerting ---
+    captured = capsys.readouterr()
+    # Your code prints "Training Complete" in the alert title
+    assert "Training Complete" in captured.out or "Model Registered" in captured.out

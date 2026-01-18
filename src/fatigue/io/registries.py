@@ -7,16 +7,16 @@ import typing as T
 
 import mlflow
 import pydantic as pdt
+from mlflow.entities.model_registry import ModelVersion
+from mlflow.models.model import ModelInfo
+from mlflow.models.signature import ModelSignature
 from mlflow.pyfunc import PyFuncModel, PythonModel, PythonModelContext
 
 from fatigue.core import models, schemas
-from fatigue.utils import signers
 
 # %% TYPES
 
-Info = mlflow.models.model.ModelInfo
 Alias = mlflow.entities.model_registry.ModelVersion
-Version = mlflow.entities.model_registry.ModelVersion
 
 # %% HELPERS
 
@@ -69,9 +69,9 @@ class Saver(abc.ABC, pdt.BaseModel, strict=True, frozen=True, extra="forbid"):
     def save(
         self,
         model: models.Model,
-        signature: signers.Signature,
+        signature: ModelSignature,
         input_example: schemas.Inputs,
-    ) -> Info:
+    ) -> ModelInfo:
         """Save a model in the model registry."""
 
 
@@ -94,14 +94,14 @@ class CustomSaver(Saver):
             params: T.Union[T.Dict[str, T.Any], None] = None,
         ) -> schemas.Outputs:
             """Generate predictions with a custom model."""
-            return self.model.predict(inputs=model_input)
+            return self.model.predict(model_input)
 
     def save(
         self,
         model: models.Model,
-        signature: signers.Signature,
+        signature: ModelSignature,
         input_example: schemas.Inputs,
-    ) -> Info:
+    ) -> ModelInfo:
         adapter = CustomSaver.Adapter(model=model)
         return mlflow.pyfunc.log_model(
             python_model=adapter,
@@ -120,9 +120,9 @@ class BuiltinSaver(Saver):
     def save(
         self,
         model: models.Model,
-        signature: signers.Signature,
+        signature: ModelSignature,
         input_example: schemas.Inputs,
-    ) -> Info:
+    ) -> ModelInfo:
         builtin_model = model.get_internal_model()
         module = getattr(mlflow, self.flavor)
         return module.log_model(
@@ -209,7 +209,7 @@ class Register(abc.ABC, pdt.BaseModel, strict=True, frozen=True, extra="forbid")
     tags: dict[str, T.Any] = {}
 
     @abc.abstractmethod
-    def register(self, name: str, model_uri: str) -> Version:
+    def register(self, name: str, model_uri: str) -> ModelVersion:
         """Register a model given its name and URI."""
 
 
@@ -218,7 +218,7 @@ class MlflowRegister(Register):
 
     KIND: T.Literal["MlflowRegister"] = "MlflowRegister"
 
-    def register(self, name: str, model_uri: str) -> Version:
+    def register(self, name: str, model_uri: str) -> ModelVersion:
         return mlflow.register_model(name=name, model_uri=model_uri, tags=self.tags)
 
 

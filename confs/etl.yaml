@@ -1,0 +1,43 @@
+job:
+  KIND: ETLJob
+
+  # 1. Input Configuration
+  inputs:
+    raw_path: "data/raw"
+    hr_pattern: "HR_*.csv"
+    sleep_pattern: "sleep_*.csv"
+    pvt_pattern: "pvt_*.csv"
+
+  # 2. Output Configuration
+  outputs:
+    inputs_train: "data/processed/inputs_train.parquet"
+    targets_train: "data/processed/targets_train.parquet"
+    inputs_test: "data/processed/inputs_test.parquet"
+    targets_test: "data/processed/targets_test.parquet"
+    ids_train: "data/processed/ids_train.parquet"
+    ids_test: "data/processed/ids_test.parquet"
+
+  # 3. Processing Logic
+  settings:
+    target_col: "fatigue_score"
+
+    pvt_artifact_threshold: 100.0
+    fatigue_threshold_low: 300.0
+    fatigue_threshold_high: 400.0
+
+    hr_limits: [40, 180]
+    sleep_limits: [0.25, 36]
+    pvt_tolerance_minutes: 15
+    window_size: "5min"
+    min_periods: 30
+
+    offsets: [0, 1, 2, 3, 4]
+
+  # 4. Splitting Logic
+  split:
+    test_size: 0.2
+    random_state: 42
+
+  mlflow_service:
+    tracking_uri: "azureml://eastasia.api.azureml.ms/mlflow/v1.0/subscriptions/3d0073e4-c3b1-45bc-9f1b-a38899e7bda2/resourceGroups/Dalhousie/providers/Microsoft.MachineLearningServices/workspaces/fatigue_test"
+    experiment_name: "etl"

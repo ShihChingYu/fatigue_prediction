@@ -6,8 +6,13 @@ import typing as T
 from typing import cast
 
 import mlflow
+import pandas as pd
 import pandera as pa
 import pydantic as pdt
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.impute import SimpleImputer
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 # Internal imports
 from fatigue.core import models, schemas
@@ -48,12 +53,12 @@ class TrainingJob(base.Job):
     )
 
     # --- Hyperparameters ---
-    n_estimators: int = 82
-    max_depth: int = 12
-    min_samples_split: int = 17
-    min_samples_leaf: int = 4
+    n_estimators: int = 105
+    max_depth: int = 7
+    min_samples_split: int = 18
+    min_samples_leaf: int = 2
     bootstrap: bool = True
-    max_features: T.Union[str, int, float] = "sqrt"
+    max_features: T.Union[str, int, float] = "log2"
 
     # --- MODEL ---
     model: models.FatigueRandomForestModel = pdt.Field(
@@ -73,18 +78,17 @@ class TrainingJob(base.Job):
 
             # 2. Read Training Data
             logger.info("Reading Training Data...")
-            inputs_train = schemas.ModelInputsSchema.check(self.inputs_train.read())
-            targets_train = schemas.TargetsSchema.check(self.targets_train.read())
-            logger.debug(f"Train Shape: {inputs_train.shape}")
 
-            # Cast inputs to satisfy Pandera strict typing
             inputs_train_raw = schemas.ModelInputsSchema.check(self.inputs_train.read())
-            inputs_train = cast(
-                pa.typing.DataFrame[schemas.ModelInputsSchema], inputs_train.head(5)
-            )
+            inputs_train = cast(pa.typing.DataFrame[schemas.ModelInputsSchema], inputs_train_raw)
 
             targets_train_raw = schemas.TargetsSchema.check(self.targets_train.read())
             targets_train = cast(pa.typing.DataFrame[schemas.TargetsSchema], targets_train_raw)
+
+            # Drop user_id before training
+            if "user_id" in inputs_train.columns:
+                logger.info("Dropping 'user_id' for training...")
+                inputs_train = inputs_train.drop(columns=["user_id"])
 
             logger.debug(f"Train Shape: {inputs_train.shape}")
 
@@ -94,45 +98,69 @@ class TrainingJob(base.Job):
                 context="training",
             )
 
+            # 3. AUTOLOGGING
+            mlflow.sklearn.autolog(
+                log_models=False, log_input_examples=False, log_model_signatures=False
+            )
+            logger.info("Autologging enabled (Metrics/Params: ON, Model Artifacts: OFF)")
+
+            # 4. Construct Pipeline
+            # [CRITICAL] This must match the TuningJob logic exactly!
+            # If we don't use this pipeline, the model will crash on NaNs or behave differently.
+            logger.info("Constructing Training Pipeline (Impute -> Scale -> RF)...")
+
+            pipeline = Pipeline(
+                [
+                    ("imputer", SimpleImputer(strategy="median")),  # Handle missing data
+                    ("scaler", StandardScaler()),  # Normalize features
+                    (
+                        "model",
+                        RandomForestRegressor(  # The actual model
+                            n_estimators=self.n_estimators,
+                            max_depth=self.max_depth,
+                            min_samples_split=self.min_samples_split,
+                            min_samples_leaf=self.min_samples_leaf,
+                            bootstrap=self.bootstrap,
+                            max_features=self.max_features,
+                            random_state=42,
+                        ),
+                    ),
+                ]
+            )
+            y_train = targets_train["fatigue_score"]
             # 4. Train (Regression)
             logger.info("Fitting Random Forest Regressor...")
+            pipeline.fit(inputs_train, y_train)
 
-            self.model.n_estimators = self.n_estimators
-            self.model.max_depth = self.max_depth
-            self.model.min_samples_split = self.min_samples_split
-            self.model.min_samples_leaf = self.min_samples_leaf
-            self.model.bootstrap = self.bootstrap
-            self.model.max_features = self.max_features
-
-            logger.info(
-                f"Hyperparameters: n_estimators={self.n_estimators}, max_depth={self.max_depth}"
-            )
-            self.model.fit(inputs=inputs_train, targets=targets_train)
-
-            # 1. Create a variable for the sample and CAST it immediately
-            sample_inputs = cast(
-                pa.typing.DataFrame[schemas.ModelInputsSchema], inputs_train.head(5)
-            )
-
-            # 2. Use that variable for prediction
-            sample_output_raw = self.model.predict(inputs=sample_inputs)
+            # Create a variable for the sample and CAST it immediately
+            sample_inputs = inputs_train.head(5)
+            sample_output = pipeline.predict(sample_inputs)
 
             # 3. Cast the output too
-            sample_output = cast(pa.typing.DataFrame[schemas.OutputsSchema], sample_output_raw)
+            sample_output_df = pd.DataFrame(sample_output, columns=["prediction"])
 
             # 4. Use the CASTED variables for signing and saving
             signature = self.signer.sign(
-                inputs=T.cast(T.Any, sample_inputs), outputs=T.cast(T.Any, sample_output)
+                inputs=T.cast(T.Any, sample_inputs), outputs=T.cast(T.Any, sample_output_df)
+            )
+
+            sample_inputs_typed = T.cast(
+                pa.typing.DataFrame[schemas.ModelInputsSchema], sample_inputs
             )
 
             model_info = self.saver.save(
-                model=self.model,
+                model=pipeline,
                 signature=signature,
-                input_example=sample_inputs,
+                input_example=sample_inputs_typed,
             )
+            if model_info is None:
+                raise RuntimeError("Saver returned None for model info")
+
             model_version = self.registry.register(
                 name=self.mlflow_service.registry_name, model_uri=model_info.model_uri
             )
+            if model_version is None:
+                raise RuntimeError("Registry returned None for model version")
 
             logger.success(f"Model Registered: {model_version.name} v{model_version.version}")
 

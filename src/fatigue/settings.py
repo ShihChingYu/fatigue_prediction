@@ -3,7 +3,6 @@
 # %% IMPORTS
 import pydantic_settings as pdts
 
-
 # %% SETTINGS
 
 

@@ -1,0 +1,23 @@
+job:
+  KIND: PromotionJob
+
+  # 1. Target Stage
+  stage: "Production"
+
+  # 2. Version Strategy
+  # Use 'null' to auto-select the latest version available in the test registry
+  version: null
+
+  # 3. MLflow Config (Use local or Azure test workspace)
+  mlflow_service:
+    # Option A: For local integration testing (fastest)
+    tracking_uri: "./mlruns_test"
+    registry_uri: "./mlruns_test"
+
+    # Option B: For Azure integration testing
+    # tracking_uri: "azureml://eastasia.api.azureml.ms/..."
+    # registry_uri: "azureml://eastasia.api.azureml.ms/..."
+
+    experiment_name: "Promotion_Test"
+    # IMPORTANT: Use a test-specific model name so we don't mess up the real 'fatigue' model
+    registry_name: "fatigue_test_model"

@@ -1,0 +1,32 @@
+job:
+  KIND: TuningJob
+
+  # 1. Test Data
+  # We use small sample files so the test runs instantly
+  inputs:
+    KIND: ParquetReader
+    path: "tests/data/inputs_sample.parquet"
+    limit: 100
+
+  targets:
+    KIND: ParquetReader
+    path: "tests/data/targets_sample.parquet"
+    limit: 100
+
+  # 2. Fast Settings (Critical for Tests)
+  n_trials: 2          # Run only 2 trials (vs 50 in production)
+  n_splits: 2          # Min folds allowed (vs 5 in production)
+  fatigue_threshold: 0.26
+
+  # 3. Test Metadata
+  run_config:
+    name: "Tuning_Integration_Test"
+    tags:
+      env: "test"
+
+  mlflow_service:
+    # You can keep using Azure to verify connectivity,
+    # or switch to a local folder ("./mlruns") for offline testing.
+    tracking_uri: "./mlruns"
+    registry_uri: "./mlruns"
+    experiment_name: "Tests"

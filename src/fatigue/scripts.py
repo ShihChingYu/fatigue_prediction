@@ -15,8 +15,8 @@ import argparse
 import json
 import sys
 import typing as T
-import pydantic as pdt
 
+import pydantic as pdt
 import yaml  # Assuming you use PyYAML
 
 # Internal Imports

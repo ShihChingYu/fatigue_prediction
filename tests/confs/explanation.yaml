@@ -1,0 +1,27 @@
+job:
+  KIND: ExplanationsJob
+
+  # Model Selection
+  alias_or_version: "1"
+
+  # Data Source (Input)
+  inputs_samples:
+    KIND: ParquetReader
+    path: "data/processed/inputs_test.parquet"
+    limit: 50
+
+  # Outputs
+  models_explanations:
+    KIND: ParquetWriter
+    path: "data/explanation/models_explanations_test.parquet"
+
+  samples_explanations:
+    KIND: ParquetWriter
+    path: "data/explanation/samples_explanations_test.parquet"
+
+  # Test MLflow Environment
+  mlflow_service:
+    tracking_uri: "./mlruns_test"
+    registry_uri: "./mlruns_test"
+    experiment_name: "Explanation_Test"
+    registry_name: "fatigue_test_model"

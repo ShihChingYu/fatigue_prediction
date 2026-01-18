@@ -129,8 +129,13 @@ ModelInputs = papd.DataFrame[ModelInputsSchema]
 class TargetsSchema(Schema):
     """Schema for the project target."""
 
-    index: papd.Index[papd.Int64] = pa.Field(check_name=False)
+    user_id: T.Optional[pa.typing.Series[str]] = pa.Field(nullable=True)  # type: ignore
+    HRTIME: T.Optional[pa.typing.Series[object]] = pa.Field(coerce=True, nullable=True)  # type: ignore
 
+    class Config:
+        strict = True
+
+    index: papd.Index[papd.Int64] = pa.Field(check_name=False)
     # Target is bounded 0-1 based on your describe()
     fatigue_score: papd.Series[papd.Float64] = pa.Field(ge=0.0, le=1.0)
 
@@ -140,6 +145,12 @@ Targets = papd.DataFrame[TargetsSchema]
 
 class OutputsSchema(Schema):
     """Schema for the project output."""
+
+    user_id: T.Optional[pa.typing.Series[str]] = pa.Field(nullable=True)  # type: ignore
+    timestamp: T.Optional[pa.typing.Series[object]] = pa.Field(coerce=True, nullable=True)  # type: ignore
+
+    class Config:
+        strict = True
 
     index: papd.Index[papd.Int64] = pa.Field(check_name=False)
     prediction: papd.Series[papd.Float64] = pa.Field(ge=0.0, le=1.0)

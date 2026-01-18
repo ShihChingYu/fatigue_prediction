@@ -1,0 +1,22 @@
+job:
+  KIND: EvaluationsJob
+
+  # Logic Settings
+  fatigue_threshold: 0.26
+  alias_or_version: "1"  # Use explicit version for testing
+
+  # Data Sources (Points to test artifacts)
+  inputs_test:
+    KIND: ParquetReader
+    path: "data/processed/inputs_test.parquet"
+
+  targets_test:
+    KIND: ParquetReader
+    path: "data/processed/targets_test.parquet"
+
+  # Test MLflow Environment
+  mlflow_service:
+    tracking_uri: "./mlruns_test"
+    registry_uri: "./mlruns_test"
+    experiment_name: "Evaluation_Test"
+    registry_name: "fatigue_test_model"

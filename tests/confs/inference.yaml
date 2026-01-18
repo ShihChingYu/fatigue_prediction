@@ -1,0 +1,29 @@
+job:
+  KIND: InferenceJob
+
+  # Model Selection
+  alias_or_version: "1" # Use specific version for testing stability
+  fatigue_threshold: 0.26
+
+  # Processing Limit (Speed up tests)
+  limit: 100
+
+  # Data Sources (Points to test artifacts or placeholders)
+  inputs:
+    KIND: ParquetReader
+    path: "data/monitor/inputs_inference.parquet"
+
+  ids:
+    KIND: ParquetReader
+    path: "data/monitor/ids_inference.parquet"
+
+  outputs:
+    KIND: ParquetWriter
+    path: "data/monitor/predictions_test.parquet"
+
+  # Test MLflow Environment
+  mlflow_service:
+    tracking_uri: "./mlruns_test"
+    registry_uri: "./mlruns_test"
+    experiment_name: "Inference_Test"
+    registry_name: "fatigue_test_model"

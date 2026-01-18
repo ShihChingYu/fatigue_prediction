@@ -46,6 +46,12 @@ class EvaluationsJob(base.Job):
             model = self.loader.load(uri=model_uri)
             logger.info(f"Evaluating Model: {model_uri}")
 
+            # --- MODEL LINEAGE ---
+            logger.info(f"Loading Model from: {model_uri}")
+            mlflow.log_param("model_uri", model_uri)
+            mlflow.log_param("eval_threshold", self.fatigue_threshold)
+            model = self.loader.load(uri=model_uri)
+
             # 2. Read Test Data
             inputs_test = schemas.ModelInputsSchema.check(self.inputs_test.read())
             targets_test = schemas.TargetsSchema.check(self.targets_test.read())
@@ -57,9 +63,26 @@ class EvaluationsJob(base.Job):
                 context="testing",
             )
 
+            # Pre-processing: Drop user_id if present
+            if "user_id" in inputs_test.columns:
+                inputs_test = inputs_test.drop(columns=["user_id"])
+
             # 3. Predict
             outputs = model.predict(inputs=inputs_test)
-            y_pred = outputs["prediction"]
+            if isinstance(outputs, dict) and "prediction" in outputs:
+                y_pred = outputs["prediction"].values.ravel()
+            else:
+                # returns numpy array
+                y_pred = np.array(outputs).ravel()
+
+            # Handle Array vs DataFrame output
+            # Pipelines return numpy arrays
+            if hasattr(outputs, "values"):
+                y_pred = outputs.values.ravel()
+            elif isinstance(outputs, dict) and "prediction" in outputs:
+                y_pred = outputs["prediction"].values.ravel()
+            else:
+                y_pred = np.array(outputs).ravel()
 
             # 4. Deep Metrics
             rmse = np.sqrt(mean_squared_error(y_true, y_pred))

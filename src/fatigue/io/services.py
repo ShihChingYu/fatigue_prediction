@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import abc
 import contextlib as ctx
+import os
 import sys
 import typing as T
 
@@ -137,6 +138,13 @@ class MlflowService(Service):
     def start(self) -> None:
         if mlflow.active_run():
             return
+
+        final_tracking = os.getenv("MLFLOW_TRACKING_URI") or self.tracking_uri
+        final_registry = os.getenv("MLFLOW_REGISTRY_URI") or self.registry_uri
+
+        if "azureml" in final_tracking and final_registry == "./mlruns":
+            final_registry = final_tracking
+
         # server uri
         mlflow.set_tracking_uri(uri=self.tracking_uri)
         mlflow.set_registry_uri(uri=self.registry_uri)
@@ -166,4 +174,10 @@ class MlflowService(Service):
 
     def client(self) -> mt.MlflowClient:
         """Return a new Mlflow client."""
+        final_tracking = os.getenv("MLFLOW_TRACKING_URI") or self.tracking_uri
+        final_registry = os.getenv("MLFLOW_REGISTRY_URI") or self.registry_uri
+
+        if "azureml" in final_tracking and final_registry == "./mlruns":
+            final_registry = final_tracking
+
         return mt.MlflowClient(tracking_uri=self.tracking_uri, registry_uri=self.registry_uri)
