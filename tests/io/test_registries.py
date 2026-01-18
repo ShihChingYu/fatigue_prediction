@@ -44,6 +44,7 @@ def test_uri_for_model_alias_or_version() -> None:
 def test_custom_pipeline(
     model: models.Model,
     inputs: schemas.Inputs,
+    targets: schemas.Targets,
     signature: signers.Signer,
     mlflow_service: services.MlflowService,
 ) -> None:
@@ -56,9 +57,10 @@ def test_custom_pipeline(
     register = registries.MlflowRegister(tags=tags)
     run_config = mlflow_service.RunConfig(name="Custom-Run")
 
+    expected_signature = signature.sign(inputs, targets)
     # when
     with mlflow_service.run_context(run_config=run_config) as run:
-        info = saver.save(model=model, signature=signature, input_example=inputs)
+        info = saver.save(model=model, signature=expected_signature, input_example=inputs)
         version = register.register(name=name, model_uri=info.model_uri)
 
     model_uri = registries.uri_for_model_version(name=name, version=int(version.version))
@@ -71,7 +73,7 @@ def test_custom_pipeline(
     # - info
     assert info.run_id == run.info.run_id, "The run id should be the same!"
     assert info.model_uri is not None, "The model info should contain a valid URI!"
-    assert info.signature == signature, "The model signature should be the same!"
+    assert info.signature == expected_signature, "The model signature should be the same!"
     assert info.flavors.get("python_function"), "The model should have a pyfunc flavor!"
     # - version
     assert version.name == name, "The model version name should be the same!"
@@ -81,7 +83,7 @@ def test_custom_pipeline(
     assert adapter.model.metadata.run_id == version.run_id, (
         "The adapter model run id should be the same!"
     )
-    assert adapter.model.metadata.signature == signature, (
+    assert adapter.model.metadata.signature == expected_signature, (
         "The adapter model signature should be the same!"
     )
 
@@ -89,6 +91,7 @@ def test_custom_pipeline(
 def test_builtin_pipeline(
     model: models.Model,
     inputs: schemas.Inputs,
+    targets: schemas.Targets,
     signature: signers.Signer,
     mlflow_service: services.MlflowService,
 ) -> None:
@@ -102,9 +105,11 @@ def test_builtin_pipeline(
     register = registries.MlflowRegister(tags=tags)
     run_config = mlflow_service.RunConfig(name="Builtin-Run")
 
+    expected_signature = signature.sign(inputs, targets)
+
     # when
     with mlflow_service.run_context(run_config=run_config) as run:
-        info = saver.save(model=model, signature=signature, input_example=inputs)
+        info = saver.save(model=model, signature=expected_signature, input_example=inputs)
         version = register.register(name=name, model_uri=info.model_uri)
 
     model_uri = registries.uri_for_model_version(name=name, version=int(version.version))

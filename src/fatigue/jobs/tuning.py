@@ -75,7 +75,7 @@ class TuningJob(base.Job):
             logger.debug(f"Lineage Columns: {lineage_df.columns.tolist()}")
 
             # NOTE: If this crashes with "Out of Memory", change inputs to inputs.head(100)
-            dataset = mlflow.data.from_pandas(
+            dataset = mlflow.data.from_pandas(  # type: ignore
                 inputs,
                 source=self.inputs.path,
                 name="tuning_data",

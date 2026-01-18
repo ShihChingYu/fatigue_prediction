@@ -9,7 +9,6 @@ import mlflow
 import pydantic as pdt
 from mlflow.models.signature import ModelSignature
 
-from fatigue.core import schemas
 
 # %% TYPES
 
@@ -29,9 +28,7 @@ class Signer(abc.ABC, pdt.BaseModel, strict=True, frozen=True, extra="forbid"):
     KIND: str
 
     @abc.abstractmethod
-    def sign(
-        self, inputs: schemas.ModelInputsSchema, outputs: schemas.TargetsSchema
-    ) -> ModelSignature:
+    def sign(self, inputs: T.Any, outputs: T.Any) -> ModelSignature:
         """Generate a model signature from its inputs/outputs.
 
         Args:
@@ -48,9 +45,7 @@ class InferSigner(Signer):
 
     KIND: T.Literal["InferSigner"] = "InferSigner"
 
-    def sign(
-        self, inputs: schemas.ModelInputsSchema, outputs: schemas.TargetsSchema
-    ) -> ModelSignature:
+    def sign(self, inputs: T.Any, outputs: T.Any) -> ModelSignature:
         return mlflow.models.infer_signature(model_input=inputs, model_output=outputs)
 
 
