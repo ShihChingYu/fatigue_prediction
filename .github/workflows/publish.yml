@@ -25,6 +25,13 @@ jobs:
       # 2. Build Python Package (.whl)
       - run: uv run just package
 
+      # Lowercase the image name
+      - name: Lowercase Image Name
+        run: |
+          echo "IMAGE_NAME=${IMAGE_NAME,,}" >> ${GITHUB_ENV}
+        env:
+          IMAGE_NAME: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}'
+
       # 3. Log in to GitHub Container Registry
       - name: Log in to the Container registry
         uses: docker/login-action@v3
@@ -45,8 +52,8 @@ jobs:
           push: true
           # Tags the image with 'latest' AND the release version (e.g., v1.0.0)
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.event.release.tag_name }}
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.event.release.tag_name }}
           # Caching speeds up future builds
           cache-from: type=gha
           cache-to: type=gha,mode=max
