@@ -13,13 +13,13 @@ environment:
   version: 1
   image: "ghcr.io/shihchingyu/fatigue_prediction:v0.1.2"
 
-inference_config:
-  liveness_route:
-    path: /health
-    port: 5001
-  readiness_route:
-    path: /health
-    port: 5001
-  scoring_route:
-    path: /predict
-    port: 5001
+  inference_config:
+    liveness_route:
+      path: /health
+      port: 5001
+    readiness_route:
+      path: /health
+      port: 5001
+    scoring_route:
+      path: /predict
+      port: 5001
