@@ -1,0 +1,25 @@
+$schema: https://azuremlschemas.azureedge.net/latest/managedOnlineDeployment.schema.json
+name: blue
+endpoint_name: fatigue-endpoint-amy
+
+# 1. Compute Settings
+# Standard_DS3_v2 is a safe default for ML models (4 cores, 14GB RAM)
+instance_type: Standard_DS3_v2
+instance_count: 1
+
+# 2. The Docker Container (Inline Environment)
+environment:
+  name: fatigue-custom-env
+  version: 1
+  image: "ghcr.io/shihchingyu/fatigue_prediction:v0.1.2"
+
+inference_config:
+  liveness_route:
+    path: /health
+    port: 5001
+  readiness_route:
+    path: /health
+    port: 5001
+  scoring_route:
+    path: /predict
+    port: 5001

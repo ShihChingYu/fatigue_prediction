@@ -2,11 +2,14 @@
 
 FROM ghcr.io/astral-sh/uv:python3.9-bookworm
 
-# Copy the wheel file from your local dist/ folder
+WORKDIR /app
+
+COPY pyproject.toml .
+COPY uv.lock .
 COPY dist/*.whl .
+COPY src/ ./src/
+COPY main.py .
+COPY python_model.pkl .
+EXPOSE 5001
 
-# Install the package globally in the container
-RUN uv pip install --system *.whl
-
-# Default command
-CMD ["fatigue", "--help"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5001"]

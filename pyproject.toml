@@ -1,6 +1,6 @@
 [project]
 name = "fatigue_prediction"
-version = "0.1.0"
+version = "0.1.2"
 description = "Use heart rate and sleep data to predict pvt, which is the indication of fatigue in different probabilities"
 authors = [{ name = "Amy Shih", email = "cyshih30@gmail.com" }]
 readme = "README.md"
@@ -33,6 +33,8 @@ dependencies = [
     "seaborn>=0.13.2",
     "commitizen<4.0",
     "google-re2<1.1",
+    "fastapi>=0.128.0",
+    "uvicorn>=0.39.0",
 ]
 
 [dependency-groups]
