@@ -16,6 +16,7 @@ mlruns_test/
 mlartifacts/
 *.html
 notes/
+notebooks/
 
 # Jupyter
 .ipynb_checkpoints

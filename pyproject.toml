@@ -1,6 +1,6 @@
 [project]
 name = "fatigue_prediction"
-version = "0.1.2"
+version = "0.1.3"
 description = "Use heart rate and sleep data to predict pvt, which is the indication of fatigue in different probabilities"
 authors = [{ name = "Amy Shih", email = "cyshih30@gmail.com" }]
 readme = "README.md"
