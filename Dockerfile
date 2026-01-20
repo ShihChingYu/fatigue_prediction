@@ -4,11 +4,10 @@ FROM ghcr.io/astral-sh/uv:python3.9-bookworm
 
 WORKDIR /app
 
-COPY pyproject.toml .
-COPY uv.lock .
+COPY pyproject.toml uv.lock ./
 RUN uv pip install --system -r pyproject.toml
 
-COPY src/ ./src/
+COPY src/ ./
 COPY main.py .
 COPY python_model.pkl .
 

@@ -3,21 +3,28 @@
 ## System Architecture
 ```mermaid
 graph LR
-    A[Mobile App] -->|Send Features| B[Backend API]
-    B -->|Real-time Inference| I[Model Inference Service]
-    I -->|Prediction| B
-    B -->|Return Result| A
+    A[Mobile App] -->|JSON: HR & Sleep| B[Azure Online Endpoint]
 
-    B -->|Store Metadata| C[(SQL DB)]
-    B -->|Store Features| D[(Azure Blob)]
+    subgraph Managed Online Deployment [Azure Managed Deployment: blue]
+        B -->|FastAPI /predict| M[main.py: RealTimeETL]
+        M -->|Cleaned Features| P[Model: python_model.pkl]
+        P -->|Inference Result| M
+    end
 
-    D --> E{Drift Detector}
-    E -->|Drift > Threshold| F[Retraining Job]
+    M -->|Prediction & Timestamp| B
+    B -->|Return JSON| A
 
-    F -->|Track Experiments| G[MLflow]
-    F -->|Register Model| H[Model Registry]
+    %% Automated Data Collection
+    B -.->|Data Collector| D[(Azure Blob Storage)]
 
-    H -->|Deploy New Model| I
+    %% Monitoring & MLOps Loop
+    D --> E{Azure ML Monitoring}
+    E -->|Drift Magnitude| F[Retraining Job]
+
+    F -->|Track Metrics| G[MLflow]
+    F -->|New Version| H[Model Registry]
+
+    H -->|Update deployment.yml| B
 ```
 
 ## Business Objectives ##

@@ -1,24 +1,18 @@
 $schema: https://azuremlschemas.azureedge.net/latest/managedOnlineDeployment.schema.json
 name: blue
 endpoint_name: fatigue-endpoint-amy
+model: azureml:fatigue:3
 
-# 1. Compute Settings
+# This is the shorthand that replaces your whole "# 2" block
+environment: azureml:fatigue-final-env:1
+
+data_collector:
+  sampling_rate: 1.0
+  collections:
+    request:
+      enabled: "true"
+    response:
+      enabled: "true"
+
 instance_type: Standard_DS2_v2
 instance_count: 1
-
-# 2. The Docker Container (Inline Environment)
-environment:
-  name: fatigue-custom-env
-  version: 2
-  image: "ghcr.io/shihchingyu/fatigue_prediction:v0.1.3"
-
-  inference_config:
-    liveness_route:
-      path: /health
-      port: 5001
-    readiness_route:
-      path: /health
-      port: 5001
-    scoring_route:
-      path: /predict
-      port: 5001

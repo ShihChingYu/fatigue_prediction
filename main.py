@@ -8,7 +8,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 # 1. Import your existing ETL logic
-from src.fatigue.jobs.inference_etl import InferenceETLJob
+from fatigue.jobs.inference_etl import InferenceETLJob
 
 # Initialize Logging
 logging.basicConfig(level=logging.INFO)
