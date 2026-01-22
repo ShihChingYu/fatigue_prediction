@@ -35,6 +35,8 @@ dependencies = [
     "google-re2<1.1",
     "fastapi>=0.128.0",
     "uvicorn>=0.39.0",
+    "litellm>=1.81.1",
+    "sentence-transformers>=5.1.2",
 ]
 
 [dependency-groups]

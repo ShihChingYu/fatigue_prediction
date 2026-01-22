@@ -2,10 +2,10 @@ job:
   KIND: InferenceJob
 
   # How many rows to process (remove or set to null for full dataset)
-  limit: 500000
+  limit: 10000
   alias_or_version: "latest"
 
-  fatigue_threshold: 0.26 # the threshold decided from evaluation
+  fatigue_threshold: 0.4 # the threshold decided from evaluation
 
   inputs:
     KIND: ParquetReader
@@ -20,6 +20,5 @@ job:
     path: data/monitor/predictions.parquet
 
   mlflow_service:
-    tracking_uri: "azureml://eastasia.api.azureml.ms/mlflow/v1.0/subscriptions/3d0073e4-c3b1-45bc-9f1b-a38899e7bda2/resourceGroups/Dalhousie/providers/Microsoft.MachineLearningServices/workspaces/fatigue_test"
-    registry_uri: "azureml://eastasia.api.azureml.ms/mlflow/v1.0/subscriptions/3d0073e4-c3b1-45bc-9f1b-a38899e7bda2/resourceGroups/Dalhousie/providers/Microsoft.MachineLearningServices/workspaces/fatigue_test"
-    experiment_name: "Inference"
+    tracking_uri: "./mlruns"
+    experiment_name: "GCP_Inference"

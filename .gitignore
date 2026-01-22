@@ -10,7 +10,6 @@ data/
 models/
 outputs/
 mlruns/
-*.pkl
 *.parquet
 mlruns_test/
 mlartifacts/

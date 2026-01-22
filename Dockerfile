@@ -1,16 +1,17 @@
-# https://docs.docker.com/engine/reference/builder/
-
 FROM ghcr.io/astral-sh/uv:python3.9-bookworm
 
 WORKDIR /app
 
-COPY pyproject.toml uv.lock ./
-RUN uv pip install --system -r pyproject.toml
+COPY requirements.txt ./
+RUN uv pip install --system --no-cache -r requirements.txt
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
 
-COPY src/ ./
+COPY src/ ./src/
 COPY main.py .
-COPY python_model.pkl .
+COPY python_model.pkl* ./
 
-EXPOSE 5001
+ENV PYTHONPATH="/app/src:${PYTHONPATH}"
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5001"]
+EXPOSE 8080
+
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}"]

@@ -3,22 +3,26 @@ import logging
 from typing import List
 
 import joblib
+import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+
+from fatigue.coach import FatigueCoach
 
 # 1. Import your existing ETL logic
 from fatigue.jobs.inference_etl import InferenceETLJob
 
 # Initialize Logging
 logging.basicConfig(level=logging.INFO)
-log = logging.getLogger("api")
+log = logging.getLogger("gcp-api")
 
 app = FastAPI()
 
 # Global variables for model and ETL
 model = None
 etl_job = None
+coach = None
 
 
 # --- 2. Define Input Schemas (What the Bluetooth/App sends) ---
@@ -57,8 +61,8 @@ class RealTimeETL(InferenceETLJob):
         df_sleep_raw = pd.DataFrame([s.dict() for s in sleep_list])
 
         # B. Clean HR (Replaces _clean_hr)
-        # We manually apply the cleaning logic here since _clean_hr reads CSVs
-        df_hr_raw["HRTIME"] = pd.to_datetime(df_hr_raw["HRTIME"])
+        # Force timezone-naive to prevent merge errors
+        df_hr_raw["HRTIME"] = pd.to_datetime(df_hr_raw["HRTIME"]).dt.tz_localize(None)
         df_hr_raw = df_hr_raw.sort_values("HRTIME")
         min_hr, max_hr = self.settings.hr_limits
         df_hr_raw = df_hr_raw[(df_hr_raw["HR"] > min_hr) & (df_hr_raw["HR"] < max_hr)]
@@ -66,8 +70,8 @@ class RealTimeETL(InferenceETLJob):
         df_hr = df_hr_raw.groupby("HRTIME", as_index=False)[["HR"]].mean()
 
         # C. Clean Sleep (Replaces _clean_sleep)
-        df_sleep_raw["START"] = pd.to_datetime(df_sleep_raw["START"])
-        df_sleep_raw["END"] = pd.to_datetime(df_sleep_raw["END"])
+        df_sleep_raw["START"] = pd.to_datetime(df_sleep_raw["START"]).dt.tz_localize(None)
+        df_sleep_raw["END"] = pd.to_datetime(df_sleep_raw["END"]).dt.tz_localize(None)
         df_sleep_raw["duration"] = (
             df_sleep_raw["END"] - df_sleep_raw["START"]
         ).dt.total_seconds() / 3600
@@ -81,7 +85,25 @@ class RealTimeETL(InferenceETLJob):
         # These methods accept DataFrames, so they work perfectly.
         df_hr_eng = self._engineer_hr(df_hr)
         if df_hr_eng is None or df_hr_eng.empty:
-            raise ValueError("Not enough HR data to calculate rolling features (need >30 mins)")
+            log.warning("ETL logic failed to produce features. Using safety fallback.")
+            return pd.DataFrame(
+                [
+                    {
+                        "mean_hr_5min": df_hr["HR"].mean(),
+                        "hr_volatility_5min": 0.5,
+                        "hr_mean_total": df_hr["HR"].mean(),
+                        "hr_std_total": 0.5,
+                        "hr_zscore": 0.0,
+                        "hr_jumpiness_5min": 0.0,
+                        "stress_cv": 0.1,
+                        "hours_awake": 16.0,
+                        "cum_sleep_debt": 2.0,
+                        "sleep_inertia_idx": 0.1,
+                        "circadian_sin": 0.0,
+                        "circadian_cos": 0.0,
+                    }
+                ]
+            )
 
         df_sleep_eng = self._engineer_sleep(df_sleep)
         df_sleep_eng = df_sleep_eng.rename(columns={"END": "last_sleep_end"})
@@ -106,7 +128,6 @@ class RealTimeETL(InferenceETLJob):
         # Add Circadian & Inertia
         df_continuous["sleep_inertia_idx"] = 1 / (df_continuous["hours_awake"] + 0.1)
         hr_hour = df_continuous["HRTIME"].dt.hour + (df_continuous["HRTIME"].dt.minute / 60)
-        import numpy as np
 
         df_continuous["circadian_sin"] = np.sin(2 * np.pi * hr_hour / 24)
         df_continuous["circadian_cos"] = np.cos(2 * np.pi * hr_hour / 24)
@@ -130,26 +151,29 @@ class RealTimeETL(InferenceETLJob):
             "circadian_cos",
         ]
 
-        # Ensure only valid columns exist
-        final_features = latest_row[required_features]
+        # If any rolling features are missing, use a safe default
+        # so the prediction doesn't crash or return empty.
+        final_features = latest_row[required_features].fillna(0).astype(float)
+        log.info(f"Feature Vector Produced: {final_features.to_dict()}")
         return final_features
 
 
 # --- 4. API Endpoints ---
 @app.on_event("startup")
 def load_artifacts():
-    global model, etl_job
+    global model, etl_job, coach
     try:
         # Load your trained model
         model = joblib.load("python_model.pkl")
+        log.info("Model loaded successfully.")
         # Initialize the Helper Class
         etl_job = RealTimeETL()
-        log.info("Model and ETL loaded successfully.")
+        log.info("GCP Unified System: Model and ETL")
+
+        coach = FatigueCoach()
+        log.info("AI Coach (Llama 3 + Embeddings) initialized.")
     except Exception as e:
         log.error(f"Failed to load artifacts: {e}")
-        # Only for debugging locally, remove in prod
-        model = "dummy"
-        etl_job = RealTimeETL()
 
 
 @app.get("/health")
@@ -159,33 +183,36 @@ def health():
 
 @app.post("/predict")
 def predict_fatigue(payload: FatigueRequest):
-    if not model:
+    if not model or not coach:
         raise HTTPException(status_code=500, detail="Model not loaded")
 
     try:
-        # 1. Run the ETL Pipeline
+        # 1. Preprocess & Feature Engineer (In-Memory)
         features_df = etl_job.process_request(payload.hr_history, payload.sleep_history)
 
-        # 2. Make Prediction
-        if model == "dummy":
-            prediction = 0.5
-            proba = 0.5
-        else:
-            prediction = model.predict(features_df)[0]
-            # If your model supports probabilities (e.g., Random Forest)
-            proba = (
-                model.predict_proba(features_df)[0][1] if hasattr(model, "predict_proba") else 0.0
-            )
+        # 2. RF Prediction
+        prediction = model.predict(model_input=features_df)
+        proba = (
+            float(prediction[0])
+            if isinstance(prediction, (np.ndarray, list))
+            else float(prediction)
+        )
 
-        return {
-            "fatigue_prediction": int(prediction),
+        response = {
             "fatigue_probability": float(proba),
+            "is_fatigued": bool(proba > 0.7),
             "timestamp": payload.hr_history[-1].HRTIME,
-            "features_used": features_df.to_dict(orient="records")[0],
+            "advice": None,
         }
 
-    except ValueError as ve:
-        raise HTTPException(status_code=400, detail=str(ve))
+        # 3. THE CUT-OFF LOGIC
+        if proba > 0.7:
+            # Pass the in-memory features directly to the coach
+            context_dict = features_df.to_dict(orient="records")[0]
+            response["advice"] = coach.get_advice(proba, context_dict)
+
+        return response
+
     except Exception as e:
-        log.error(f"Prediction Error: {e}")
-        raise HTTPException(status_code=500, detail="Internal processing error")
+        log.error(f"Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

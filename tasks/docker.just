@@ -1,5 +1,8 @@
 # tasks/docker.just
 
+GCP_PROJECT := "fatigue-advice"
+GCP_REPO := "gcr.io/" + GCP_PROJECT + "/fatigue-advice"
+
 # run docker tasks
 [group('docker')]
 docker: docker-build docker-run
