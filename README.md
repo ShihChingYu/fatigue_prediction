@@ -70,13 +70,13 @@ Preprocessing: I implemented windowed normalization to account for individual he
 ### 3. The Model
 The primary objective is minimizing false negatives (missed fatigue events), even at the cost of increased false positives.
 
-Model Type: Random Forest Classifier. I chose RF over deep learning for its high interpretability via feature importance and its low computational footprint for serverless deployment.
+Model Choice: Random Forest Classifier. I chose RF because (1) In our benchmarks, XGBoost achieved a marginal 1% gain in Precision but suffered from lower Recall. For a safety-critical application, RF's ability to catch more fatigue states was the deciding factor. (2) Heart rate data is inherently messy. RF’s bagging architecture is naturally resistant to overfitting and outliers, whereas XGBoost’s aggressive optimization was more prone to memorizing noise in the training set.
 
 Baseline vs. Final: The baseline Logistic Regression model failed to capture the non-linear interactions between sleep debt and heart rate volatility. The final RF model achieved a 90% Recall, meeting our safety-first objective.
 
-Decision Path: I explicitly avoided more complex architectures (like LSTMs) to maintain a sub-200ms inference latency budget.
+Latency: I avoided complex architectures like LSTMs or Transformers to stay well within a sub-200ms inference budget, making the system suitable for real-time mobile or serverless environments.
 
-Thresholding: The default decision threshold (0.5) was lowered to 0.4 after analyzing the Precision–Recall curve to reduce false negatives.
+Thresholding: Based on a Precision-Recall Curve analysis, the decision threshold was moved from 0.5 to 0.4. This "threshold moving" strategy allowed us to maximize Recall while keeping user "alert fatigue" at a manageable level.
 
 ### 4. Training & Experiment Tracking
 Tracking: All experiments are managed via MLflow.
