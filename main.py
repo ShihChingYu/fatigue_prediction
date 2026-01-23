@@ -84,26 +84,36 @@ class RealTimeETL(InferenceETLJob):
         # D. Engineer Features (REUSE your existing complex logic!)
         # These methods accept DataFrames, so they work perfectly.
         df_hr_eng = self._engineer_hr(df_hr)
+
+        required_features = [
+            "mean_hr_5min",
+            "hr_volatility_5min",
+            "hr_mean_total",
+            "hr_std_total",
+            "hr_zscore",
+            "hr_jumpiness_5min",
+            "stress_cv",
+            "cum_sleep_debt",
+            "hours_awake",
+            "sleep_inertia_idx",
+            "circadian_sin",
+            "circadian_cos",
+        ]
+
         if df_hr_eng is None or df_hr_eng.empty:
             log.warning("ETL logic failed to produce features. Using safety fallback.")
-            return pd.DataFrame(
-                [
-                    {
-                        "mean_hr_5min": df_hr["HR"].mean(),
-                        "hr_volatility_5min": 0.5,
-                        "hr_mean_total": df_hr["HR"].mean(),
-                        "hr_std_total": 0.5,
-                        "hr_zscore": 0.0,
-                        "hr_jumpiness_5min": 0.0,
-                        "stress_cv": 0.1,
-                        "hours_awake": 16.0,
-                        "cum_sleep_debt": 2.0,
-                        "sleep_inertia_idx": 0.1,
-                        "circadian_sin": 0.0,
-                        "circadian_cos": 0.0,
-                    }
-                ]
+            fallback_dict = {f: 0.0 for f in required_features}  # Initialize all with 0.0
+            fallback_dict.update(
+                {
+                    "mean_hr_5min": float(df_hr["HR"].mean()) if not df_hr.empty else 75.0,
+                    "hr_mean_total": float(df_hr["HR"].mean()) if not df_hr.empty else 75.0,
+                    "hours_awake": 16.0,
+                    "cum_sleep_debt": 2.0,
+                    "sleep_inertia_idx": 0.1,
+                }
             )
+            df_fallback = pd.DataFrame([fallback_dict])
+            return df_fallback.reindex(columns=required_features).astype(float)
 
         df_sleep_eng = self._engineer_sleep(df_sleep)
         df_sleep_eng = df_sleep_eng.rename(columns={"END": "last_sleep_end"})
@@ -136,24 +146,9 @@ class RealTimeETL(InferenceETLJob):
         # Note: We take the LAST row (the most recent moment) for prediction
         latest_row = df_continuous.iloc[[-1]].copy()
 
-        required_features = [
-            "mean_hr_5min",
-            "hr_volatility_5min",
-            "hr_mean_total",
-            "hr_std_total",
-            "hr_zscore",
-            "hr_jumpiness_5min",
-            "stress_cv",
-            "hours_awake",
-            "cum_sleep_debt",
-            "sleep_inertia_idx",
-            "circadian_sin",
-            "circadian_cos",
-        ]
-
         # If any rolling features are missing, use a safe default
         # so the prediction doesn't crash or return empty.
-        final_features = latest_row[required_features].fillna(0).astype(float)
+        final_features = latest_row.reindex(columns=required_features).fillna(0).astype(float)
         log.info(f"Feature Vector Produced: {final_features.to_dict()}")
         return final_features
 
@@ -190,8 +185,16 @@ def predict_fatigue(payload: FatigueRequest):
         # 1. Preprocess & Feature Engineer (In-Memory)
         features_df = etl_job.process_request(payload.hr_history, payload.sleep_history)
 
+        try:
+            # Ask the model for its required order
+            model_features = model.feature_names_in_
+            features_df = features_df.reindex(columns=model_features).fillna(0)
+            log.info(f"Dynamically aligned features to: {model_features.tolist()}")
+        except AttributeError:
+            log.warning("Model does not have feature_names_in_. Ensure list order is perfect.")
+
         # 2. RF Prediction
-        prediction = model.predict(model_input=features_df)
+        prediction = model.predict(None, features_df)
         proba = (
             float(prediction[0])
             if isinstance(prediction, (np.ndarray, list))
@@ -200,13 +203,13 @@ def predict_fatigue(payload: FatigueRequest):
 
         response = {
             "fatigue_probability": float(proba),
-            "is_fatigued": bool(proba > 0.7),
+            "is_fatigued": bool(proba > 0.3),
             "timestamp": payload.hr_history[-1].HRTIME,
             "advice": None,
         }
 
         # 3. THE CUT-OFF LOGIC
-        if proba > 0.7:
+        if proba > 0.3:
             # Pass the in-memory features directly to the coach
             context_dict = features_df.to_dict(orient="records")[0]
             response["advice"] = coach.get_advice(proba, context_dict)

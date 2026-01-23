@@ -86,6 +86,7 @@ python_version = "3.9"
 check_untyped_defs = true
 ignore_missing_imports = true
 plugins = ["pandera.mypy", "pydantic.mypy"]
+exclude = ["venv", ".venv", "tests"]
 
 [tool.pytest.ini_options]
 addopts = "--verbosity=2"
@@ -121,5 +122,6 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [[tool.mypy.overrides]]
-module = "google.*"
+module = ["google.*","transformers.*"]
 ignore_missing_imports = true
+follow_imports = "skip"

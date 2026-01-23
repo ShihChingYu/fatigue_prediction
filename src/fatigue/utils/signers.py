@@ -9,7 +9,6 @@ import mlflow
 import pydantic as pdt
 from mlflow.models.signature import ModelSignature
 
-
 # %% TYPES
 
 

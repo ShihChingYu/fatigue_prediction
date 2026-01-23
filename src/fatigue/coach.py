@@ -1,12 +1,22 @@
+import logging
 import os
+
+import litellm
 import numpy as np
-from litellm import completion
 from scipy.spatial.distance import cosine
 from sentence_transformers import SentenceTransformer
+
+log = logging.getLogger("gcp-api")
 
 
 class FatigueCoach:
     def __init__(self):
+        self.api_key = os.environ.get("GROQ_API_KEY")
+        if self.api_key:
+            litellm.api_key = self.api_key
+            log.info("Groq API Key successfully loaded into LiteLLM.")
+        else:
+            log.warning("GROQ_API_KEY NOT FOUND in environment variables!")
         # 1. Local Free Embedding Model (Runs on GCP CPU)
         self.embedder = SentenceTransformer("all-MiniLM-L6-v2")
         # 2. Predefined Knowledge Base
@@ -71,8 +81,13 @@ class FatigueCoach:
         course = self.select_course(proba, features)
         try:
             api_key = os.environ.get("GROQ_API_KEY")
-            response = completion(
-                model="groq/llama3-8b-8192",
+            litellm.api_key = api_key
+
+            if not api_key:
+                print("DEBUG: GROQ_API_KEY is missing from environment variables!")
+
+            response = litellm.completion(
+                model="groq/llama-3.1-8b-instant",
                 api_key=api_key,
                 messages=[
                     {
@@ -86,6 +101,7 @@ class FatigueCoach:
                 ],
             )
             return response.choices[0].message.content
-        except Exception:
+        except Exception as e:
             # Fallback if API fails: Return raw course text
+            print(f"ERROR in LiteLLM/Groq: {str(e)}")
             return f"Coach Insight: {course['text']}"

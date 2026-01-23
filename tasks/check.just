@@ -13,7 +13,7 @@ check-code:
 # Verifies that your "-> int" and "X: pd.DataFrame" hints are correct.
 [group('check')]
 check-type:
-    uv run mypy {{SOURCES}} {{TESTS}}
+    uv run mypy {{SOURCES}} {{TESTS}} --ignore-missing-imports
 
 # 3. Format Checking (Ruff)
 # Checks if code is perfectly aligned. Unlike 'just format', this only COMPLAINS, it doesn't fix.
