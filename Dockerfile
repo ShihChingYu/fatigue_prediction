@@ -10,7 +10,7 @@ COPY src/ ./src/
 COPY main.py .
 COPY python_model.pkl* ./
 
-ENV PYTHONPATH="/app/src:${PYTHONPATH}"
+ENV PYTHONPATH="/app/src:${PYTHONPATH:-}"
 
 EXPOSE 8080
 
