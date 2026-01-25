@@ -181,6 +181,9 @@ def predict_fatigue(payload: FatigueRequest):
     if not model or not coach:
         raise HTTPException(status_code=500, detail="Model not loaded")
 
+    # This logs the raw HR and Sleep data sent from Streamlit to the GCP logs
+    log.info(f"Incoming Prediction Request Data: {payload.model_dump()}")
+
     try:
         # 1. Preprocess & Feature Engineer (In-Memory)
         features_df = etl_job.process_request(payload.hr_history, payload.sleep_history)

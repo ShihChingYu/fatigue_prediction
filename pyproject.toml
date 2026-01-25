@@ -57,6 +57,7 @@ dev = [
     "typing-extensions>=4.15.0",
     "types-pyyaml>=6.0.12.20250915",
     "types-protobuf>=6.32.1.20251210",
+    "types-requests>=2.32.4.20260107",
 ]
 
 notebook = ["ipykernel>=6.29.5", "nbformat>=5.10.4"]
